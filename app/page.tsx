@@ -1,15 +1,21 @@
-import Hero from "@/components/hero";
-import ConnectSupabaseSteps from "@/components/tutorial/connect-supabase-steps";
-import SignUpUserSteps from "@/components/tutorial/sign-up-user-steps";
-import { hasEnvVars } from "@/utils/supabase/check-env-vars";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+
 
 export default async function Home() {
   return (
     <>
-      <Hero />
-      <main className="flex-1 flex flex-col gap-6 px-4">
-        <h2 className="font-medium text-xl mb-4">Next steps</h2>
-        {hasEnvVars ? <SignUpUserSteps /> : <ConnectSupabaseSteps />}
+      <main className="flex flex-col h-screen items-center justify-center">
+        <h1 className="text-2xl my-5 text-center">Welcome to the <span className="font-black italic display-block">SDWALDO</span> admin portal.</h1>
+        <Link
+          className="flex px-2.5 py-1 items-center space-x-2.5 bg-eerieBlack text-white rounded-xl"
+          href="/dashboard/products"
+        >
+          <span>Continue</span>
+          <span>
+            <ArrowRight />
+          </span>
+        </Link>
       </main>
     </>
   );
