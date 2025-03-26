@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SignOutButton from "./sign-out-button";
-import { Car, Home, House, LandPlot, Logs, ShoppingBasket, Store } from "lucide-react";
+import { Car, Home, House, LandPlot, Logs, ShoppingBasket, Store, Trello } from "lucide-react";
 
 const links = [
   {
@@ -15,6 +15,11 @@ const links = [
     name: "Orders",
     href: "/dashboard/orders",
     icon: <Logs />,
+  },
+  {
+    name: "Brands",
+    href: "/dashboard/brands",
+    icon: <Trello />,
   },
 ];
 
