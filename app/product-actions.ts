@@ -14,11 +14,8 @@ const ProductSchema = z.object({
   name: z.string().min(1, { message: "Name is required" }),
   description: z.string().min(1, { message: "Description is required" }),
   price: z
-    .number({
-      required_error: "Price is required",
-      invalid_type_error: "Price must be a number",
-    })
-    .gt(0, { message: "Price must be greater than 0" }),
+    .number()
+    .gt(0, { message: "Price is required and must be greater than 0" }),
   material: z.string().min(1, { message: "Material is required" }),
   tags: z
     .array(z.number())
@@ -62,7 +59,7 @@ export async function createProduct(
     subcategory: formData.get("subcategory")?.toString() ?? "",
     name: formData.get("name")?.toString() ?? "",
     description: formData.get("description")?.toString() ?? "",
-    price: parseFloat(formData.get("price")?.toString() || "NaN"),
+    price: parseFloat(formData.get("price")?.toString() || "0"),
     material: formData.get("material")?.toString() ?? "",
     tags: JSON.parse(formData.get("tags") as string) as number[],
   });
@@ -99,8 +96,8 @@ export async function createProduct(
   if (sizeType === "none") {
     selectedColorIds.forEach((colorId) => {
       const quantity = formData.get(`quantity_${colorId}`) as string;
-      if (!quantity || isNaN(parseInt(quantity)) || parseInt(quantity) <= 0) {
-        variantErrors.quantity![`${colorId}`] = ["Quantity must be > 0"];
+      if (!quantity || isNaN(parseInt(quantity)) || parseInt(quantity) < 0) {
+        variantErrors.quantity![`${colorId}`] = ["Quantity must be >= 0"];
       }
     });
   } else {
@@ -117,10 +114,10 @@ export async function createProduct(
           if (
             !quantity ||
             isNaN(parseInt(quantity)) ||
-            parseInt(quantity) <= 0
+            parseInt(quantity) < 0
           ) {
             variantErrors.quantity![key.replace(`quantity_`, "")] = [
-              "Quantity must be > 0",
+              "Quantity must be >= 0",
             ];
           }
         });
@@ -200,7 +197,7 @@ export async function createProduct(
 
       const { error: tagsError } = await supabase
         .from("product_tag")
-        .insert({ productTags });
+        .insert(productTags);
 
       if (tagsError) {
         return <ProductState>{

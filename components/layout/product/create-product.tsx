@@ -21,15 +21,11 @@ import { createClient } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useActionState, useEffect, useState } from "react";
-import placeholder from "../../../app/placeholder-image.svg";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import Divider from "../divider";
-import { Checkbox } from "@/components/ui/checkbox";
-import { size } from "lodash";
 import MultipleImageUpload from "../multiple-image-uploader";
 import { TagsSelector } from "../tags-selector";
-import { Button } from "@/components/ui/button";
 import { SubmitButton } from "../submit-button";
 import { ProductState, createProduct } from "@/app/product-actions";
 
@@ -74,6 +70,9 @@ export default function CreateProductForm({
   const [selectedColorIds, setSelectedColorIds] = useState<number[]>([]);
   const [selectedSizeType, setSelectedSizeType] = useState<string>();
   const [selectedTags, setSelectedTags] = useState<ITag[]>([]);
+  const [name, setName] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [price, setPrice] = useState<number | "">("");
 
   useEffect(() => {
     const fetchSubcategories = async () => {
@@ -146,6 +145,10 @@ export default function CreateProductForm({
       className="w-full flex flex-col space-y-2.5"
       action={(formData) => {
         formData.append("sizes", JSON.stringify(sizes));
+        formData.append(
+          "tags",
+          JSON.stringify(selectedTags.map((tag) => tag.id))
+        );
 
         Object.entries(imagesByColor).forEach(([colorId, images]) => {
           images.forEach((image, index) => {
@@ -284,7 +287,15 @@ export default function CreateProductForm({
       <div className="flex space-x-2.5 w-full border border-gray-200 rounded-md">
         <div className="flex flex-col space-y-2 p-3 w-full">
           <Label htmlFor="name">Product Name</Label>
-          <Input name="name" type="text" placeholder="Product Name" />
+          <Input
+            name="name"
+            type="text"
+            placeholder="Product Name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+            }}
+          />
           <div id="name-error" aria-live="polite" aria-atomic="true">
             {state.errors?.name &&
               state.errors.name.map((error: string, i) => (
@@ -294,10 +305,16 @@ export default function CreateProductForm({
               ))}
           </div>
         </div>
-
         <div className="flex flex-col space-y-2 p-3 w-full">
           <Label htmlFor="description">Product Description</Label>
-          <Textarea placeholder="Description goes here" name="description" />
+          <Textarea
+            placeholder="Description goes here"
+            name="description"
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+            }}
+          />
           <div id="name-error" aria-live="polite" aria-atomic="true">
             {state.errors?.description &&
               state.errors.description.map((error: string, i) => (
@@ -311,7 +328,16 @@ export default function CreateProductForm({
       <div className="flex space-x-2.5 w-full border border-gray-200 rounded-md">
         <div className="flex flex-col space-y-2 p-3 w-full">
           <Label htmlFor="price">Product Price</Label>
-          <Input name="price" type="number" placeholder="Product Price" />
+          <Input
+            name="price"
+            type="number"
+            placeholder="Product Price"
+            value={price}
+            onChange={(e) => {
+              const value = e.target.value;
+              setPrice(value === "" ? "" : Number(value));
+            }}
+          />
           <div id="name-error" aria-live="polite" aria-atomic="true">
             {state.errors?.price &&
               state.errors.price.map((error: string, i) => (
@@ -356,7 +382,6 @@ export default function CreateProductForm({
             setSelectedTags(tags);
           }}
           availableTags={tags}
-          name="tags"
         />
         <div id="name-error" aria-live="polite" aria-atomic="true">
           {state.errors?.tags &&
@@ -375,6 +400,7 @@ export default function CreateProductForm({
           <div className="flex items-center flex-wrap space-x-2.5">
             {colors.map((color) => (
               <button
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   if (selectedColorIds.includes(color.id)) {
@@ -419,6 +445,7 @@ export default function CreateProductForm({
               "none",
             ].map((sizeType, index) => (
               <button
+                type="button"
                 key={index}
                 onClick={(e) => {
                   e.preventDefault();
@@ -480,9 +507,11 @@ export default function CreateProductForm({
                             aria-live="polite"
                             aria-atomic="true"
                           >
-                            {(state.variantErrors?.quantity?.[
-                              `${color?.id}_${size.id}`
-                            ] ?? []).map((error: string, i) => (
+                            {(
+                              state.variantErrors?.quantity?.[
+                                `${color?.id}_${size.id}`
+                              ] ?? []
+                            ).map((error: string, i) => (
                               <p key={i} className="text-sm text-red-500">
                                 {error}
                               </p>
@@ -536,9 +565,11 @@ export default function CreateProductForm({
                             aria-live="polite"
                             aria-atomic="true"
                           >
-                            {(state.variantErrors?.quantity?.[
-                              `${color?.id}_${size.id}`
-                            ] ?? []).map((error: string, i) => (
+                            {(
+                              state.variantErrors?.quantity?.[
+                                `${color?.id}_${size.id}`
+                              ] ?? []
+                            ).map((error: string, i) => (
                               <p key={i} className="text-sm text-red-500">
                                 {error}
                               </p>
@@ -582,13 +613,13 @@ export default function CreateProductForm({
                     name={`quantity_${color?.id}`}
                   />
                   <div id="name-error" aria-live="polite" aria-atomic="true">
-                    {(state.variantErrors?.quantity?.[`${color?.id}`] ?? []).map(
-                      (error: string, i) => (
-                        <p key={i} className="text-sm text-red-500">
-                          {error}
-                        </p>
-                      )
-                    )}
+                    {(
+                      state.variantErrors?.quantity?.[`${color?.id}`] ?? []
+                    ).map((error: string, i) => (
+                      <p key={i} className="text-sm text-red-500">
+                        {error}
+                      </p>
+                    ))}
                   </div>
                 </div>
               );

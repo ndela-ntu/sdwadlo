@@ -21,22 +21,18 @@ const MultipleImageUpload = ({
         preview: URL.createObjectURL(file),
       }));
 
-      setImages((prev) => {
-        const newImages = [...prev, ...filesArray];
-        onImagesChange(colorId, newImages); // Notify parent component
-        return newImages;
-      });
+      const newImages = [...images, ...filesArray];
+      setImages(newImages);
+      onImagesChange(colorId, newImages); // Call after state update
     }
   };
 
   const removeImage = (index: number) => {
-    setImages((prev) => {
-      const newImages = [...prev];
-      URL.revokeObjectURL(newImages[index].preview);
-      newImages.splice(index, 1);
-      onImagesChange(colorId, newImages); // Notify parent after removal
-      return newImages;
-    });
+    const newImages = [...images];
+    URL.revokeObjectURL(newImages[index].preview);
+    newImages.splice(index, 1);
+    setImages(newImages);
+    onImagesChange(colorId, newImages); // Call after state update
   };
 
   return (
@@ -51,7 +47,11 @@ const MultipleImageUpload = ({
           onChange={handleImageChange}
         />
         <button
-          onClick={() => fileInputRef.current?.click()}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }}
           className="max-w-fit bg-black text-white p-2 rounded"
         >
           Select Images
@@ -68,7 +68,11 @@ const MultipleImageUpload = ({
                 className="h-24 w-24 object-cover rounded-md"
               />
               <button
-                onClick={() => removeImage(index)}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  removeImage(index);
+                }}
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X size={16} />
