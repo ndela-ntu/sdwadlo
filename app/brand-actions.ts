@@ -115,4 +115,33 @@ export async function editBrand(prevState: BrandState, formData: FormData) {
   redirect("/dashboard/brands");
 }
 
-export async function deleteBrand(id: number) {}
+export async function deleteBrand(id: number) {
+  try {
+    const supabase = await createClient();
+
+    const { data: brand, error: fetchError } = await supabase
+      .from("brand")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch item: ${fetchError.message}`);
+    }
+
+    await deleteFileFromS3(brand.logo_url);
+
+    const { error: deleteError } = await supabase
+      .from("brand")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete item: ${deleteError.message}`);
+    }
+  } catch (error) {
+    console.error("Error in deleteBrand:", error);
+  }
+
+  revalidatePath("/dashboard/brands");
+}
