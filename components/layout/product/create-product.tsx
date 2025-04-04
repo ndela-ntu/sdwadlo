@@ -73,6 +73,7 @@ export default function CreateProductForm({
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [price, setPrice] = useState<number | "">("");
+  const [quantities, setQuantities] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
     const fetchSubcategories = async () => {
@@ -501,6 +502,19 @@ export default function CreateProductForm({
                             placeholder="Quantity"
                             className="max-w-fit"
                             name={`quantity_${color?.id}_${size.id}`}
+                            value={
+                              quantities[`quantity_${color?.id}_${size.id}`] ||
+                              ""
+                            }
+                            onChange={(e) => {
+                              const key = `quantity_${color?.id}_${size.id}`;
+                              const value = Number(e.target.value);
+
+                              setQuantities((prev) => ({
+                                ...prev,
+                                [key]: value,
+                              }));
+                            }}
                           />
                           <div
                             id="name-error"
@@ -559,6 +573,19 @@ export default function CreateProductForm({
                             placeholder="Quantity"
                             className="max-w-fit"
                             name={`quantity_${color?.id}_${size.id}`}
+                            value={
+                              quantities[`quantity_${color?.id}_${size.id}`] ||
+                              ""
+                            }
+                            onChange={(e) => {
+                              const key = `quantity_${color?.id}_${size.id}`;
+                              const value = Number(e.target.value);
+
+                              setQuantities((prev) => ({
+                                ...prev,
+                                [key]: value,
+                              }));
+                            }}
                           />
                           <div
                             id="name-error"
@@ -611,6 +638,16 @@ export default function CreateProductForm({
                     placeholder="Quantity"
                     className="max-w-fit"
                     name={`quantity_${color?.id}`}
+                    value={quantities[`quantity_${color?.id}`] || ""}
+                    onChange={(e) => {
+                      const key = `quantity_${color?.id}`;
+                      const value = Number(e.target.value);
+
+                      setQuantities((prev) => ({
+                        ...prev,
+                        [key]: value,
+                      }))
+                    }}
                   />
                   <div id="name-error" aria-live="polite" aria-atomic="true">
                     {(
