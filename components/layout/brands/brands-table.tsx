@@ -28,7 +28,7 @@ import {
               <TableCell className="w-[7.5%]">
                 <div className="relative aspect-square w-full">
                   <Image
-                    src={brand.logo_url || "/placeholder.svg?height=48&width=96"}
+                    src={brand.logo_url || "/placeholder-image.svg"}
                     alt={`${brand.name} logo`}
                     fill
                     sizes="96px"

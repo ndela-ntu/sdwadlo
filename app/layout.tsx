@@ -1,6 +1,8 @@
 import ErrorBoundary from "@/components/layout/error-boundary";
 import "./globals.css";
 import { Montserrat } from "next/font/google";
+import { LowStockProvider } from "@/context/low-stock-contex";
+import { Toaster } from "@/components/ui/toaster"
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -23,10 +25,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${montserrat.className}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${montserrat.className}`}
+      suppressHydrationWarning
+    >
       <body className="bg-white text-black">
         <ErrorBoundary>
-          <main className="h-full">{children}</main>
+          <LowStockProvider>
+            <main className="h-full">{children}</main>
+            <Toaster />
+          </LowStockProvider>
         </ErrorBoundary>
       </body>
     </html>
