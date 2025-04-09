@@ -6,6 +6,7 @@ import { useLowStock } from "@/context/low-stock-contex";
 import { useToast } from "@/hooks/use-toast";
 import IStockSettings from "@/models/stock-settings";
 import { createClient } from "@/utils/supabase/client";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export default function StockSettings({
@@ -16,11 +17,13 @@ export default function StockSettings({
   const supabase = createClient();
   const { toast } = useToast();
   const { setLowStockVariants } = useLowStock();
+  const [loading, setLoading] = useState<boolean>(false);
   const [notificationValue, setNotificationValue] = useState<number | "">(
     stockSettings.low_stock_counter
   );
 
   const saveSettings = async () => {
+    setLoading(true);
     const { error: stockSettingsError } = await supabase
       .from("stock_setting")
       .update({ low_stock_counter: notificationValue })
@@ -64,12 +67,14 @@ export default function StockSettings({
         });
       }
     }
+
+    setLoading(false);
   };
 
   return (
     <div className="flex flex-col space-y-2.5">
       <div className="flex flex-row space-x-2.5 items-center">
-        <span className="">Notify when stocks reach:</span>
+        <span className="text-sm">Notify when stocks reach:</span>
         <Input
           className="w-[100px]"
           type="number"
@@ -99,7 +104,7 @@ export default function StockSettings({
         }}
         type="button"
       >
-        Save Changes
+        {loading ? <Loader2 className="animate-spin" />: 'Save Changes'}
       </Button>
     </div>
   );

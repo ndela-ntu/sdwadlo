@@ -28,6 +28,7 @@ import MultipleImageUpload from "../multiple-image-uploader";
 import { TagsSelector } from "../tags-selector";
 import { SubmitButton } from "../submit-button";
 import { ProductState, createProduct } from "@/app/product-actions";
+import isRecordOfStringArrays from "@/lib/is-record";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,6 +63,7 @@ export default function CreateProductForm({
   const [imagesByColor, setImagesByColor] = useState<{
     [key: number]: { file: File; preview: string }[];
   }>({});
+  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string>();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>();
   const [subcategories, setSubcategories] = useState<ISubcategory[]>([]);
@@ -73,7 +75,9 @@ export default function CreateProductForm({
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [price, setPrice] = useState<number | "">("");
+  const [quantity, setQuantity] = useState<number | "">("");
   const [quantities, setQuantities] = useState<{ [key: string]: number }>({});
+  const [productType, setProductType] = useState<"Clothing" | "Accessory">();
 
   useEffect(() => {
     const fetchSubcategories = async () => {
@@ -105,7 +109,13 @@ export default function CreateProductForm({
     fetchSubcategories();
   }, [selectedCategoryId]);
 
-  const handleImagesChange = (
+  const handleAccessoryImagesChange = (
+    images: { file: File; preview: string }[]
+  ) => {
+    setImages(images);
+  };
+
+  const handleClothingImagesChange = (
     colorId: number | undefined,
     images: { file: File; preview: string }[]
   ) => {
@@ -145,23 +155,100 @@ export default function CreateProductForm({
     <form
       className="w-full flex flex-col space-y-2.5"
       action={(formData) => {
-        formData.append("sizes", JSON.stringify(sizes));
-        formData.append(
-          "tags",
-          JSON.stringify(selectedTags.map((tag) => tag.id))
-        );
+        if (formData.has("tags")) {
+          formData.set(
+            "tags",
+            JSON.stringify(selectedTags.map((tag) => tag.id))
+          );
+        } else {
+          formData.append(
+            "tags",
+            JSON.stringify(selectedTags.map((tag) => tag.id))
+          );
+        }
 
-        Object.entries(imagesByColor).forEach(([colorId, images]) => {
-          images.forEach((image, index) => {
-            formData.append(`image_${colorId}_${index}`, image.file);
+        if (productType === "Clothing") {
+          if (formData.has("type")) {
+            formData.set("type", "Clothing");
+          } else {
+            formData.append("type", "Clothing");
+          }
+
+          Object.entries(imagesByColor).forEach(([colorId, images]) => {
+            images.forEach((image, index) => {
+              if (formData.has(`image_${colorId}_${index}`)) {
+                formData.set(`image_${colorId}_${index}`, image.file);
+              } else {
+                formData.append(`image_${colorId}_${index}`, image.file);
+              }
+            });
           });
-        });
-        formData.append("selectedColorIds", JSON.stringify(selectedColorIds));
+
+          if (formData.has("selectedColorIds")) {
+            formData.set("selectedColorIds", JSON.stringify(selectedColorIds));
+          } else {
+            formData.append(
+              "selectedColorIds",
+              JSON.stringify(selectedColorIds)
+            );
+          }
+
+          if (formData.has("sizes")) {
+            formData.set("sizes", JSON.stringify(sizes));
+          } else {
+            formData.append("sizes", JSON.stringify(sizes));
+          }
+        } else if (productType === "Accessory") {
+          if (formData.has("type")) {
+            formData.set("type", "Accessory");
+          } else {
+            formData.append("type", "Accessory");
+          }
+
+          images.forEach((image, index) => {
+            if (formData.has(`image_${index}`)) {
+              formData.set(`image_${index}`, image.file);
+            } else {
+              formData.append(`image_${index}`, image.file);
+            }
+          });
+        }
 
         formAction(formData);
       }}
     >
       <div className="border border-gray-200 rounded-md max-w-[60%]">
+        <div className="flex flex-col space-y-2 p-3">
+          <Label htmlFor="category">Product Type</Label>
+          <Select
+            name="type"
+            value={productType}
+            onValueChange={(value) => {
+              if (value) {
+                setProductType(value as "Clothing" | "Accessory");
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select product type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Product Type</SelectLabel>
+                <SelectItem value="Clothing">Clothing</SelectItem>
+                <SelectItem value="Accessory">Accessory</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <div id="name-error" aria-live="polite" aria-atomic="true">
+            {state.errors?.type &&
+              state.errors.type.map((error: string, i) => (
+                <p key={i} className="text-sm text-red-500">
+                  {error}
+                </p>
+              ))}
+          </div>
+        </div>
         <div className="flex flex-col space-y-2 p-3">
           <Label htmlFor="brand">Brand</Label>
           <div className="flex space-x-2.5 w-full">
@@ -394,275 +481,360 @@ export default function CreateProductForm({
         </div>
       </div>
       <Divider margin="10px 0px" />
-      <div className="flex flex-col">
-        <h2 className="text-base italic">Variants</h2>
-        <div className="flex flex-col space-y-2 p-3 w-full">
-          <Label htmlFor="colors">Select Colors</Label>
-          <div className="flex items-center flex-wrap space-x-2.5">
-            {colors.map((color) => (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (selectedColorIds.includes(color.id)) {
-                    setSelectedColorIds(
-                      selectedColorIds.filter((colorId) => colorId !== color.id)
-                    );
-                  } else {
-                    setSelectedColorIds((prev) => [...prev, color.id]);
-                  }
-                }}
-                key={color.id}
-                className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedColorIds.includes(color.id) ? "bg-chestNut text-white" : "bg-silver text-black"}`}
-              >
-                <span>{color.name}</span>
-                <div
-                  className="rounded-full p-2.5 border border-black"
-                  style={{ backgroundColor: `${color.hex}` }}
-                />
-              </button>
-            ))}
+      {productType ? (
+        productType === "Accessory" ? (
+          <div className="flex flex-col space-y-1 px-3 py-1">
+            <MultipleImageUpload
+              type="Accessory"
+              onImagesChange={handleAccessoryImagesChange}
+            />
+            <div id="name-error" aria-live="polite" aria-atomic="true">
+              {Array.isArray(state.variantErrors?.image) &&
+                state.variantErrors?.image &&
+                state.variantErrors?.image.map((error: string, i) => (
+                  <p key={i} className="text-sm text-red-500">
+                    {error}
+                  </p>
+                ))}
+            </div>
+            <Input
+              type="number"
+              placeholder="Quantity"
+              className="max-w-fit"
+              name="quantity"
+              value={quantity}
+              onChange={(e) => {
+                if (e.target.value !== "") {
+                  setQuantity(Number(e.target.value));
+                }
+              }}
+            />
+            <div id="name-error" aria-live="polite" aria-atomic="true">
+              {Array.isArray(state.variantErrors?.quantity) &&
+                state.variantErrors?.quantity &&
+                state.variantErrors?.quantity.map((error: string, i) => (
+                  <p key={i} className="text-sm text-red-500">
+                    {error}
+                  </p>
+                ))}
+            </div>
           </div>
-          <div id="name-error" aria-live="polite" aria-atomic="true">
-            {state.variantErrors?.colors &&
-              state.variantErrors?.colors.map((error: string, i) => (
-                <p key={i} className="text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
-          </div>
-        </div>
-        <div className="flex flex-col space-y-2 p-3 w-full">
-          <input
-            type="text"
-            className="hidden"
-            name="sizeType"
-            defaultValue={selectedSizeType}
-          />
-          <Label htmlFor="colors">Select Size Type</Label>
-          <div className="flex items-center flex-wrap space-x-2.5">
-            {[
-              ...Array.from(new Set(sizes.map((size) => size.type))),
-              "none",
-            ].map((sizeType, index) => (
-              <button
-                type="button"
-                key={index}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectedSizeType(sizeType);
-                }}
-                className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedSizeType === sizeType ? "bg-chestNut text-white" : "bg-silver text-black"}`}
-              >
-                {sizeType}
-              </button>
-            ))}
-          </div>
-          <div id="name-error" aria-live="polite" aria-atomic="true">
-            {state.variantErrors?.sizeType &&
-              state.variantErrors?.sizeType.map((error: string, i) => (
-                <p key={i} className="text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
-          </div>
-        </div>
-        <div className="flex flex-col space-y-2.5 w-full">
-          {selectedSizeType === "alpha" &&
-            selectedColorIds.map((colorId) => {
-              const color = colors.find((color) => color.id === colorId);
-
-              return (
-                <div
-                  key={colorId}
-                  className="flex flex-col space-y-1 px-3 py-1"
-                >
-                  <h2 className="font-bold text-sm underline">{color?.name}</h2>
-                  <MultipleImageUpload
-                    colorId={color?.id}
-                    onImagesChange={handleImagesChange}
-                  />
-                  <div id="name-error" aria-live="polite" aria-atomic="true">
-                    {(state.variantErrors?.image?.[`${color?.id}`] ?? []).map(
-                      (error: string, i) => (
-                        <p key={i} className="text-sm text-red-500">
-                          {error}
-                        </p>
-                      )
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    {sizes
-                      .filter((size) => size.type === "alpha")
-                      .map((size) => (
-                        <div key={size.id} className="flex flex-col">
-                          <Label>{size.name}</Label>
-                          <Input
-                            type="number"
-                            placeholder="Quantity"
-                            className="max-w-fit"
-                            name={`quantity_${color?.id}_${size.id}`}
-                            value={
-                              quantities[`quantity_${color?.id}_${size.id}`] ||
-                              ""
-                            }
-                            onChange={(e) => {
-                              const key = `quantity_${color?.id}_${size.id}`;
-                              const value = Number(e.target.value);
-
-                              setQuantities((prev) => ({
-                                ...prev,
-                                [key]: value,
-                              }));
-                            }}
-                          />
-                          <div
-                            id="name-error"
-                            aria-live="polite"
-                            aria-atomic="true"
-                          >
-                            {(
-                              state.variantErrors?.quantity?.[
-                                `${color?.id}_${size.id}`
-                              ] ?? []
-                            ).map((error: string, i) => (
-                              <p key={i} className="text-sm text-red-500">
-                                {error}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-        <div className="flex flex-col space-y-2.5 w-full">
-          {selectedSizeType === "numeric" &&
-            selectedColorIds.map((colorId) => {
-              const color = colors.find((color) => color.id === colorId);
-
-              return (
-                <div
-                  key={colorId}
-                  className="flex flex-col space-y-1 px-3 py-1"
-                >
-                  <h2 className="font-bold text-sm underline">{color?.name}</h2>
-                  <MultipleImageUpload
-                    colorId={color?.id}
-                    onImagesChange={handleImagesChange}
-                  />
-                  <div id="name-error" aria-live="polite" aria-atomic="true">
-                    {(state.variantErrors?.image?.[`${color?.id}`] ?? []).map(
-                      (error: string, i) => (
-                        <p key={i} className="text-sm text-red-500">
-                          {error}
-                        </p>
-                      )
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    {sizes
-                      .filter((size) => size.type === "numeric")
-                      .map((size) => (
-                        <div key={size.id} className="flex flex-col">
-                          <Label>{size.name}</Label>
-                          <Input
-                            type="number"
-                            placeholder="Quantity"
-                            className="max-w-fit"
-                            name={`quantity_${color?.id}_${size.id}`}
-                            value={
-                              quantities[`quantity_${color?.id}_${size.id}`] ||
-                              ""
-                            }
-                            onChange={(e) => {
-                              const key = `quantity_${color?.id}_${size.id}`;
-                              const value = Number(e.target.value);
-
-                              setQuantities((prev) => ({
-                                ...prev,
-                                [key]: value,
-                              }));
-                            }}
-                          />
-                          <div
-                            id="name-error"
-                            aria-live="polite"
-                            aria-atomic="true"
-                          >
-                            {(
-                              state.variantErrors?.quantity?.[
-                                `${color?.id}_${size.id}`
-                              ] ?? []
-                            ).map((error: string, i) => (
-                              <p key={i} className="text-sm text-red-500">
-                                {error}
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-        <div className="flex flex-col space-y-2.5 w-full">
-          {selectedSizeType === "none" &&
-            selectedColorIds.map((colorId) => {
-              const color = colors.find((color) => color.id === colorId);
-
-              return (
-                <div
-                  key={colorId}
-                  className="flex flex-col space-y-1 px-3 py-1"
-                >
-                  <h2 className="font-bold text-sm underline">{color?.name}</h2>
-                  <MultipleImageUpload
-                    colorId={color?.id}
-                    onImagesChange={handleImagesChange}
-                  />
-                  <div id="name-error" aria-live="polite" aria-atomic="true">
-                    {(state.variantErrors?.image?.[`${color?.id}`] ?? []).map(
-                      (error: string, i) => (
-                        <p key={i} className="text-sm text-red-500">
-                          {error}
-                        </p>
-                      )
-                    )}
-                  </div>
-                  <Input
-                    type="number"
-                    placeholder="Quantity"
-                    className="max-w-fit"
-                    name={`quantity_${color?.id}`}
-                    value={quantities[`quantity_${color?.id}`] || ""}
-                    onChange={(e) => {
-                      const key = `quantity_${color?.id}`;
-                      const value = Number(e.target.value);
-
-                      setQuantities((prev) => ({
-                        ...prev,
-                        [key]: value,
-                      }))
+        ) : (
+          <div className="flex flex-col">
+            <h2 className="text-base italic">Variants</h2>
+            <div className="flex flex-col space-y-2 p-3 w-full">
+              <Label htmlFor="colors">Select Colors</Label>
+              <div className="flex items-center flex-wrap space-x-2.5">
+                {colors.map((color) => (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (selectedColorIds.includes(color.id)) {
+                        setSelectedColorIds(
+                          selectedColorIds.filter(
+                            (colorId) => colorId !== color.id
+                          )
+                        );
+                      } else {
+                        setSelectedColorIds((prev) => [...prev, color.id]);
+                      }
                     }}
-                  />
-                  <div id="name-error" aria-live="polite" aria-atomic="true">
-                    {(
-                      state.variantErrors?.quantity?.[`${color?.id}`] ?? []
-                    ).map((error: string, i) => (
-                      <p key={i} className="text-sm text-red-500">
-                        {error}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </div>
+                    key={color.id}
+                    className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedColorIds.includes(color.id) ? "bg-chestNut text-white" : "bg-silver text-black"}`}
+                  >
+                    <span>{color.name}</span>
+                    <div
+                      className="rounded-full p-2.5 border border-black"
+                      style={{ backgroundColor: `${color.hex}` }}
+                    />
+                  </button>
+                ))}
+              </div>
+              <div id="name-error" aria-live="polite" aria-atomic="true">
+                {state.variantErrors?.colors &&
+                  state.variantErrors?.colors.map((error: string, i) => (
+                    <p key={i} className="text-sm text-red-500">
+                      {error}
+                    </p>
+                  ))}
+              </div>
+            </div>
+            <div className="flex flex-col space-y-2 p-3 w-full">
+              <input
+                type="text"
+                className="hidden"
+                name="sizeType"
+                defaultValue={selectedSizeType}
+              />
+              <Label htmlFor="colors">Select Size Type</Label>
+              <div className="flex items-center flex-wrap space-x-2.5">
+                {[
+                  ...Array.from(new Set(sizes.map((size) => size.type))),
+                  "none",
+                ].map((sizeType, index) => (
+                  <button
+                    type="button"
+                    key={index}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedSizeType(sizeType);
+                    }}
+                    className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedSizeType === sizeType ? "bg-chestNut text-white" : "bg-silver text-black"}`}
+                  >
+                    {sizeType}
+                  </button>
+                ))}
+              </div>
+              <div id="name-error" aria-live="polite" aria-atomic="true">
+                {state.variantErrors?.sizeType &&
+                  state.variantErrors?.sizeType.map((error: string, i) => (
+                    <p key={i} className="text-sm text-red-500">
+                      {error}
+                    </p>
+                  ))}
+              </div>
+            </div>
+            <div className="flex flex-col space-y-2.5 w-full">
+              {selectedSizeType === "alpha" &&
+                selectedColorIds.map((colorId) => {
+                  const color = colors.find((color) => color.id === colorId);
+
+                  return (
+                    <div
+                      key={colorId}
+                      className="flex flex-col space-y-1 px-3 py-1"
+                    >
+                      <h2 className="font-bold text-sm underline">
+                        {color?.name}
+                      </h2>
+                      <MultipleImageUpload
+                        type="Clothing"
+                        colorId={color?.id}
+                        onImagesChange={handleClothingImagesChange}
+                      />
+                      <div
+                        id="name-error"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {isRecordOfStringArrays(state.variantErrors?.image) &&
+                          (
+                            state.variantErrors?.image?.[`${color?.id}`] ?? []
+                          ).map((error: string, i) => (
+                            <p key={i} className="text-sm text-red-500">
+                              {error}
+                            </p>
+                          ))}
+                      </div>
+                      <div className="flex items-center space-x-2.5">
+                        {sizes
+                          .filter((size) => size.type === "alpha")
+                          .map((size) => (
+                            <div key={size.id} className="flex flex-col">
+                              <Label>{size.name}</Label>
+                              <Input
+                                type="number"
+                                placeholder="Quantity"
+                                className="max-w-fit"
+                                name={`quantity_${color?.id}_${size.id}`}
+                                value={
+                                  quantities[
+                                    `quantity_${color?.id}_${size.id}`
+                                  ] || ""
+                                }
+                                onChange={(e) => {
+                                  const key = `quantity_${color?.id}_${size.id}`;
+                                  const value = Number(e.target.value);
+
+                                  setQuantities((prev) => ({
+                                    ...prev,
+                                    [key]: value,
+                                  }));
+                                }}
+                              />
+                              <div
+                                id="name-error"
+                                aria-live="polite"
+                                aria-atomic="true"
+                              >
+                                {isRecordOfStringArrays(
+                                  state.variantErrors?.quantity
+                                ) &&
+                                  (
+                                    state.variantErrors?.quantity?.[
+                                      `${color?.id}_${size.id}`
+                                    ] ?? []
+                                  ).map((error: string, i) => (
+                                    <p key={i} className="text-sm text-red-500">
+                                      {error}
+                                    </p>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="flex flex-col space-y-2.5 w-full">
+              {selectedSizeType === "numeric" &&
+                selectedColorIds.map((colorId) => {
+                  const color = colors.find((color) => color.id === colorId);
+
+                  return (
+                    <div
+                      key={colorId}
+                      className="flex flex-col space-y-1 px-3 py-1"
+                    >
+                      <h2 className="font-bold text-sm underline">
+                        {color?.name}
+                      </h2>
+                      <MultipleImageUpload
+                        type="Clothing"
+                        colorId={color?.id}
+                        onImagesChange={handleClothingImagesChange}
+                      />
+                      <div
+                        id="name-error"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {isRecordOfStringArrays(state.variantErrors?.image) &&
+                          (
+                            state.variantErrors?.image?.[`${color?.id}`] ?? []
+                          ).map((error: string, i) => (
+                            <p key={i} className="text-sm text-red-500">
+                              {error}
+                            </p>
+                          ))}
+                      </div>
+                      <div className="flex items-center space-x-2.5">
+                        {sizes
+                          .filter((size) => size.type === "numeric")
+                          .map((size) => (
+                            <div key={size.id} className="flex flex-col">
+                              <Label>{size.name}</Label>
+                              <Input
+                                type="number"
+                                placeholder="Quantity"
+                                className="max-w-fit"
+                                name={`quantity_${color?.id}_${size.id}`}
+                                value={
+                                  quantities[
+                                    `quantity_${color?.id}_${size.id}`
+                                  ] || ""
+                                }
+                                onChange={(e) => {
+                                  const key = `quantity_${color?.id}_${size.id}`;
+                                  const value = Number(e.target.value);
+
+                                  setQuantities((prev) => ({
+                                    ...prev,
+                                    [key]: value,
+                                  }));
+                                }}
+                              />
+                              <div
+                                id="name-error"
+                                aria-live="polite"
+                                aria-atomic="true"
+                              >
+                                {isRecordOfStringArrays(
+                                  state.variantErrors?.quantity
+                                ) &&
+                                  (
+                                    state.variantErrors?.quantity?.[
+                                      `${color?.id}_${size.id}`
+                                    ] ?? []
+                                  ).map((error: string, i) => (
+                                    <p key={i} className="text-sm text-red-500">
+                                      {error}
+                                    </p>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="flex flex-col space-y-2.5 w-full">
+              {selectedSizeType === "none" &&
+                selectedColorIds.map((colorId) => {
+                  const color = colors.find((color) => color.id === colorId);
+
+                  return (
+                    <div
+                      key={colorId}
+                      className="flex flex-col space-y-1 px-3 py-1"
+                    >
+                      <h2 className="font-bold text-sm underline">
+                        {color?.name}
+                      </h2>
+                      <MultipleImageUpload
+                        type="Clothing"
+                        colorId={color?.id}
+                        onImagesChange={handleClothingImagesChange}
+                      />
+                      <div
+                        id="name-error"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {isRecordOfStringArrays(state.variantErrors?.image) &&
+                          (
+                            state.variantErrors?.image?.[`${color?.id}`] ?? []
+                          ).map((error: string, i) => (
+                            <p key={i} className="text-sm text-red-500">
+                              {error}
+                            </p>
+                          ))}
+                      </div>
+                      <Input
+                        type="number"
+                        placeholder="Quantity"
+                        className="max-w-fit"
+                        name={`quantity_${color?.id}`}
+                        value={quantities[`quantity_${color?.id}`] || ""}
+                        onChange={(e) => {
+                          const key = `quantity_${color?.id}`;
+                          const value = Number(e.target.value);
+
+                          setQuantities((prev) => ({
+                            ...prev,
+                            [key]: value,
+                          }));
+                        }}
+                      />
+                      <div
+                        id="name-error"
+                        aria-live="polite"
+                        aria-atomic="true"
+                      >
+                        {isRecordOfStringArrays(
+                          state.variantErrors?.quantity
+                        ) &&
+                          (
+                            state.variantErrors?.quantity?.[`${color?.id}`] ??
+                            []
+                          ).map((error: string, i) => (
+                            <p key={i} className="text-sm text-red-500">
+                              {error}
+                            </p>
+                          ))}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )
+      ) : (
+        <div></div>
+      )}
       {state.message && (
         <p className="px-3 pb-3 text-red-500 text-sm">{state.message}</p>
       )}

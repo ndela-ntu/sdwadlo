@@ -49,7 +49,7 @@ export default async function Page() {
     <ShadowedBox>
       <div className="flex justify-between">
         <Header2>Create Product</Header2>
-        <Link href="/dashboard/products/inventory">
+        <Link href={{pathname: "/dashboard/products/inventory", query: {ref: 'create-product'}}}>
           <span className="p-2.5 bg-black rounded-xl flex space-x-2.5 max-w-fit">
             <span className="text-white">Inventory</span>
             <Hammer className="text-white w-5 h-5" />

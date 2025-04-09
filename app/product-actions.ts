@@ -5,7 +5,7 @@ import ISize from "@/models/size";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { string, z } from "zod";
+import { z } from "zod";
 
 const ProductSchema = z.object({
   brand: z.string().min(1, { message: "Brand is required" }),
@@ -27,8 +27,13 @@ const VariantSchema = z.object({
   sizeType: z.string().min(1, { message: "Size type is required" }),
 });
 
+const AccessorySchema = z.object({
+  quantity: z.number().min(0, { message: "Quantity must be >= 0" }),
+});
+
 export type ProductState = {
   errors?: {
+    type?: string[];
     brand?: string[];
     category?: string[];
     subcategory?: string[];
@@ -41,8 +46,8 @@ export type ProductState = {
   variantErrors?: {
     colors?: string[];
     sizeType?: string[];
-    image?: Record<string, string[]>;
-    quantity?: Record<string, string[]>;
+    image?: Record<string, string[]> | string[];
+    quantity?: Record<string, string[]> | string[];
   };
   message?: string | null;
 };
@@ -51,8 +56,6 @@ export async function createProduct(
   prevState: ProductState,
   formData: FormData
 ) {
-  console.log(formData.get("tags"));
-  // 1. Validate Product Fields
   const productValidation = ProductSchema.safeParse({
     brand: formData.get("brand")?.toString() ?? "",
     category: formData.get("category")?.toString() ?? "",
@@ -64,156 +67,341 @@ export async function createProduct(
     tags: JSON.parse(formData.get("tags") as string) as number[],
   });
 
-  // 2. Validate Variant Basic Fields (colors & size type)
-  const selectedColorIds = JSON.parse(
-    (formData.get("selectedColorIds") as string) || "[]"
-  ) as number[];
-  const sizeType = (formData.get("sizeType") as string) || "";
-  const sizes = JSON.parse(formData.get("sizes") as string) as ISize[];
+  const type = formData.get("type") as "Clothing" | "Accessory";
+  console.log(type);
+  
+  if (type === "Clothing") {
+    // 2. Validate Variant Basic Fields (colors & size type)
+    const selectedColorIds = JSON.parse(
+      (formData.get("selectedColorIds") as string) || "[]"
+    ) as number[];
+    const sizeType = (formData.get("sizeType") as string) || "";
+    const sizes = JSON.parse(formData.get("sizes") as string) as ISize[];
 
-  const variantValidation = VariantSchema.safeParse({
-    colors: selectedColorIds,
-    sizeType: sizeType,
-  });
-
-  // 3. Early Validation for Images and Quantities
-  const variantErrors: ProductState["variantErrors"] = {
-    image: {},
-    quantity: {},
-  };
-
-  // Validate at least one image per color
-  selectedColorIds.forEach((colorId) => {
-    const hasImages = Array.from(formData.keys()).some((key) =>
-      key.startsWith(`image_${colorId}_`)
-    );
-    if (!hasImages) {
-      variantErrors.image![colorId] = ["At least one image is required"];
-    }
-  });
-
-  // Validate quantities based on size type
-  if (sizeType === "none") {
-    selectedColorIds.forEach((colorId) => {
-      const quantity = formData.get(`quantity_${colorId}`) as string;
-      if (!quantity || isNaN(parseInt(quantity)) || parseInt(quantity) < 0) {
-        variantErrors.quantity![`${colorId}`] = ["Quantity must be >= 0"];
-      }
+    const variantValidation = VariantSchema.safeParse({
+      colors: selectedColorIds,
+      sizeType: sizeType,
     });
-  } else {
-    selectedColorIds.forEach((colorId) => {
-      const sizeKeys = Array.from(formData.keys()).filter((key) =>
-        key.startsWith(`quantity_${colorId}_`)
-      );
 
-      if (sizeKeys.length === 0) {
-        variantErrors.quantity![`${colorId}`] = ["Select at least one size"];
-      } else {
-        sizeKeys.forEach((key) => {
-          const quantity = formData.get(key) as string;
-          if (
-            !quantity ||
-            isNaN(parseInt(quantity)) ||
-            parseInt(quantity) < 0
-          ) {
-            variantErrors.quantity![key.replace(`quantity_`, "")] = [
-              "Quantity must be >= 0",
-            ];
-          }
-        });
-      }
-    });
-  }
-
-  const hasImageErrors = variantErrors.image
-    ? Object.keys(variantErrors.image).length > 0
-    : false;
-
-  const hasQuantityErrors = variantErrors.quantity
-    ? Object.keys(variantErrors.quantity).length > 0
-    : false;
-
-  // 4. Check ALL validations before proceeding
-  const hasVariantErrors =
-    !variantValidation.success || hasImageErrors || hasQuantityErrors;
-
-  if (!productValidation.success || hasVariantErrors) {
-    return {
-      errors: productValidation.success
-        ? {}
-        : productValidation.error.flatten().fieldErrors,
-      variantErrors: {
-        ...(!variantValidation.success
-          ? variantValidation.error.flatten().fieldErrors
-          : {}),
-        ...variantErrors,
-      },
-      message: "Please fix all errors before submitting",
+    // 3. Early Validation for Images and Quantities
+    const variantErrors: ProductState["variantErrors"] = {
+      image: {},
+      quantity: {},
     };
-  }
 
-  try {
-    const {
-      name,
-      description,
-      brand,
-      category,
-      price,
-      subcategory,
-      material,
-      tags,
-    } = productValidation.data;
-    const { colors, sizeType } = variantValidation.data;
+    // Validate at least one image per color
+    selectedColorIds.forEach((colorId) => {
+      const hasImages = Array.from(formData.keys()).some((key) =>
+        key.startsWith(`image_${colorId}_`)
+      );
+      if (!hasImages) {
+        (variantErrors.image! as Record<string, string[]>)[colorId] = [
+          "At least one image is required",
+        ];
+      }
+    });
 
-    const supabase = await createClient();
+    // Validate quantities based on size type
+    if (sizeType === "none") {
+      selectedColorIds.forEach((colorId) => {
+        const quantity = formData.get(`quantity_${colorId}`) as string;
+        if (!quantity || isNaN(parseInt(quantity)) || parseInt(quantity) < 0) {
+          (variantErrors.quantity! as Record<string, string[]>)[`${colorId}`] =
+            ["Quantity must be >= 0"];
+        }
+      });
+    } else {
+      selectedColorIds.forEach((colorId) => {
+        const sizeKeys = Array.from(formData.keys()).filter((key) =>
+          key.startsWith(`quantity_${colorId}_`)
+        );
 
-    const { data: product, error: productError } = await supabase
-      .from("product")
-      .insert({
-        name,
-        description,
-        brand_id: parseInt(brand),
-        category_id: parseInt(category),
-        price,
-        subcategory_id: parseInt(subcategory),
-        material_id: parseInt(material),
-      })
-      .select("id")
-      .single();
+        if (sizeKeys.length === 0) {
+          (variantErrors.quantity! as Record<string, string[]>)[`${colorId}`] =
+            ["Select at least one size"];
+        } else {
+          sizeKeys.forEach((key) => {
+            const quantity = formData.get(key) as string;
+            if (
+              !quantity ||
+              isNaN(parseInt(quantity)) ||
+              parseInt(quantity) < 0
+            ) {
+              (variantErrors.quantity! as Record<string, string[]>)[
+                key.replace(`quantity_`, "")
+              ] = ["Quantity must be >= 0"];
+            }
+          });
+        }
+      });
+    }
 
-    if (productError) {
-      return <ProductState>{
-        errors: {},
-        variantErrors: {},
-        message: productError.message,
+    const hasImageErrors = variantErrors.image
+      ? Object.keys(variantErrors.image).length > 0
+      : false;
+
+    const hasQuantityErrors = variantErrors.quantity
+      ? Object.keys(variantErrors.quantity).length > 0
+      : false;
+
+    // 4. Check ALL validations before proceeding
+    const hasVariantErrors =
+      !variantValidation.success || hasImageErrors || hasQuantityErrors;
+
+    if (!productValidation.success || hasVariantErrors) {
+      return {
+        errors: productValidation.success
+          ? {}
+          : productValidation.error.flatten().fieldErrors,
+        variantErrors: {
+          ...(!variantValidation.success
+            ? variantValidation.error.flatten().fieldErrors
+            : {}),
+          ...variantErrors,
+        },
+        message: "Please fix all errors before submitting",
       };
     }
 
-    if (tags.length > 0) {
-      const productTags = tags.map((tag) => ({
-        product_id: parseInt(product.id),
-        tag_id: tag,
-      }));
+    try {
+      const {
+        name,
+        description,
+        brand,
+        category,
+        price,
+        subcategory,
+        material,
+        tags,
+      } = productValidation.data;
+      const { colors, sizeType } = variantValidation.data;
 
-      const { error: tagsError } = await supabase
-        .from("product_tag")
-        .insert(productTags);
+      const supabase = await createClient();
 
-      if (tagsError) {
-        return <ProductState>{
+      const { data: product, error: productError } = await supabase
+        .from("product")
+        .insert({
+          name,
+          description,
+          brand_id: parseInt(brand),
+          category_id: parseInt(category),
+          price,
+          subcategory_id: parseInt(subcategory),
+          material_id: parseInt(material),
+        })
+        .select("id")
+        .single();
+
+      if (productError) {
+        return {
           errors: {},
           variantErrors: {},
-          message: tagsError.message,
+          message: productError.message,
         };
       }
+
+      if (tags.length > 0) {
+        const productTags = tags.map((tag) => ({
+          product_id: parseInt(product.id),
+          tag_id: tag,
+        }));
+
+        const { error: tagsError } = await supabase
+          .from("product_tag")
+          .insert(productTags);
+
+        if (tagsError) {
+          return {
+            errors: {},
+            variantErrors: {},
+            message: tagsError.message,
+          };
+        }
+      }
+
+      //Saving variant data goes here...
+      for (const colorId of colors) {
+        const imageKeys = Array.from(formData.keys()).filter((key) =>
+          key.startsWith(`image_${colorId}`)
+        );
+
+        const imageUrls: string[] = [];
+        for (const key of imageKeys) {
+          const imageFile = formData.get(key) as File;
+          try {
+            const url = await uploadFileToS3({
+              file: imageFile,
+              folder: "product_images",
+            });
+            imageUrls.push(url);
+          } catch (error) {
+            console.error("Failed to upload image:", error);
+            return {
+              errors: {},
+              variantErrors: {},
+              message: "Failed to upload product images",
+            };
+          }
+        }
+
+        if (sizeType === "none") {
+          const quantityKey = `quantity_${colorId}`;
+          const quantity = parseInt(formData.get(quantityKey) as string);
+
+          const { error: variantError } = await supabase
+            .from("product_variant")
+            .insert({
+              product_id: product.id,
+              color_id: colorId,
+              size_id: null,
+              quantity,
+              image_urls: imageUrls,
+            });
+
+          if (variantError) {
+            return {
+              errors: {},
+              variantErrors: {},
+              message: variantError.message,
+            };
+          }
+        } else {
+          const sizesForType = sizes.filter((size) => size.type === sizeType);
+
+          for (const size of sizesForType) {
+            const quantityKey = `quantity_${colorId}_${size.id}`;
+            const quantity = parseInt(formData.get(quantityKey) as string);
+
+            const { error: variantError } = await supabase
+              .from("product_variant")
+              .insert({
+                product_id: product.id,
+                color_id: colorId,
+                size_id: size.id,
+                quantity,
+                image_urls: imageUrls,
+              });
+
+            if (variantError) {
+              return {
+                errors: {},
+                variantErrors: {},
+                message: variantError.message,
+              };
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      return {
+        message: "Error in database. Failed to create product.",
+        errors: {},
+        variantErrors: {},
+      };
+    }
+  } else if (type === "Accessory") {
+    // Handle Accessory type
+    const quantity = parseInt(formData.get("quantity")?.toString() || "0");
+
+    const accessoryValidation = AccessorySchema.safeParse({
+      quantity,
+    });
+
+    // Check for image presence
+    console.log(Array.from(formData.keys()));
+    const imageKeys = Array.from(formData.keys()).filter((key) =>
+      key.startsWith("image_")
+    );
+    console.log(imageKeys);
+
+    const hasImages = imageKeys.length > 0;
+
+    const variantErrors: ProductState["variantErrors"] = {};
+
+    if (!hasImages) {
+      variantErrors.image = ["At least one image is required"];
     }
 
-    //Saving variant data goes here...
-    for (const colorId of colors) {
-      const imageKeys = Array.from(formData.keys()).filter((key) =>
-        key.startsWith(`image_${colorId}`)
-      );
+    if (
+      !accessoryValidation.success ||
+      !productValidation.success ||
+      !hasImages
+    ) {
+      console.log(accessoryValidation.success,productValidation.success, hasImages)
+      return {
+        errors: productValidation.success
+          ? {}
+          : productValidation.error.flatten().fieldErrors,
+        variantErrors: {
+          ...(!accessoryValidation.success
+            ? {
+                quantity:
+                  accessoryValidation.error.flatten().fieldErrors.quantity,
+              }
+            : {}),
+          ...variantErrors,
+        },
+        message: "Please fix all errors before submitting",
+      };
+    }
 
+    try {
+      const {
+        name,
+        description,
+        brand,
+        category,
+        price,
+        subcategory,
+        material,
+        tags,
+      } = productValidation.data;
+
+      const supabase = await createClient();
+
+      const { data: product, error: productError } = await supabase
+        .from("product")
+        .insert({
+          name,
+          description,
+          brand_id: parseInt(brand),
+          category_id: parseInt(category),
+          price,
+          subcategory_id: parseInt(subcategory),
+          material_id: parseInt(material),
+        })
+        .select("id")
+        .single();
+
+      if (productError) {
+        return {
+          errors: {},
+          variantErrors: {},
+          message: productError.message,
+        };
+      }
+
+      if (tags.length > 0) {
+        const productTags = tags.map((tag) => ({
+          product_id: parseInt(product.id),
+          tag_id: tag,
+        }));
+
+        const { error: tagsError } = await supabase
+          .from("product_tag")
+          .insert(productTags);
+
+        if (tagsError) {
+          return {
+            errors: {},
+            variantErrors: {},
+            message: tagsError.message,
+          };
+        }
+      }
+
+      // Upload accessory images
       const imageUrls: string[] = [];
       for (const key of imageKeys) {
         const imageFile = formData.get(key) as File;
@@ -225,7 +413,7 @@ export async function createProduct(
           imageUrls.push(url);
         } catch (error) {
           console.error("Failed to upload image:", error);
-          return <ProductState>{
+          return {
             errors: {},
             variantErrors: {},
             message: "Failed to upload product images",
@@ -233,60 +421,37 @@ export async function createProduct(
         }
       }
 
-      if (sizeType === "none") {
-        const quantityKey = `quantity_${colorId}`;
-        const quantity = parseInt(formData.get(quantityKey) as string);
+      // Create accessory product variant (no color/size)
+      const { error: variantError } = await supabase
+        .from("product_variant")
+        .insert({
+          product_id: product.id,
+          color_id: null,
+          size_id: null,
+          quantity,
+          image_urls: imageUrls,
+        });
 
-        const { error: variantError } = await supabase
-          .from("product_variant")
-          .insert({
-            product_id: product.id,
-            color_id: colorId,
-            size_id: null,
-            quantity,
-            image_urls: imageUrls,
-          });
-
-        if (variantError) {
-          return <ProductState>{
-            errors: {},
-            variantErrors: {},
-            message: variantError.message,
-          };
-        }
-      } else {
-        const sizesForType = sizes.filter((size) => size.type === sizeType);
-
-        for (const size of sizesForType) {
-          const quantityKey = `quantity_${colorId}_${size.id}`;
-          const quantity = parseInt(formData.get(quantityKey) as string);
-
-          const { error: variantError } = await supabase
-            .from("product_variant")
-            .insert({
-              product_id: product.id,
-              color_id: colorId,
-              size_id: size.id,
-              quantity,
-              image_urls: imageUrls,
-            });
-
-          if (variantError) {
-            return <ProductState>{
-              errors: {},
-              variantErrors: {},
-              message: variantError.message,
-            };
-          }
-        }
+      if (variantError) {
+        return {
+          errors: {},
+          variantErrors: {},
+          message: variantError.message,
+        };
       }
+    } catch (error) {
+      console.error(error);
+      return {
+        message: "Error in database. Failed to create accessory product.",
+        errors: {},
+        variantErrors: {},
+      };
     }
-  } catch (error) {
-    console.error(error);
+  } else {
     return <ProductState>{
-      message: "Error in database. Failed to create product.",
-      errors: {},
-      variantErrors: {},
+      errors: {
+        type: ["No product type specified"],
+      },
     };
   }
 

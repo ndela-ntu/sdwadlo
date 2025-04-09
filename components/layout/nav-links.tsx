@@ -6,24 +6,39 @@ import SignOutButton from "./sign-out-button";
 import {
   Car,
   ClipboardList,
+  CornerDownRight,
+  Hammer,
   Home,
   House,
   LandPlot,
   Logs,
+  Settings,
   ShoppingBasket,
   Store,
   Trello,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useLowStock } from "@/context/low-stock-contex";
 import IStockSettings from "@/models/stock-settings";
 
-const links = [
+const links: {
+  name: string;
+  href: string;
+  icon: ReactNode;
+  subLinks?: { name: string; href: string; icon: ReactNode }[];
+}[] = [
   {
     name: "Products",
     href: "/dashboard/products",
     icon: <ShoppingBasket />,
+    subLinks: [
+      {
+        name: "Inventory",
+        href: "/dashboard/products/inventory",
+        icon: <Hammer />,
+      },
+    ],
   },
   {
     name: "Orders",
@@ -39,46 +54,51 @@ const links = [
     name: "Stocks",
     href: "/dashboard/stocks",
     icon: <ClipboardList />,
+    subLinks: [
+      {
+        name: "Settings",
+        href: "/dashboard/stocks/settings",
+        icon: <Settings />,
+      },
+    ],
   },
 ];
 
 export default function NavLinks() {
   const supabase = createClient();
   const pathname = usePathname();
-  const [lowStockCounter, setLowStockCounter] = useState<number>();
   const [error, setError] = useState<string>();
   const { lowStockVariants, addLowStockVariant, removeLowStockVariant } =
     useLowStock();
 
   useEffect(() => {
-    const fetchLowStockCounter = async () => {
-      const { data: stockSettings, error } = await supabase
+    const fetchData = async () => {
+      // First fetch the counter setting
+      const { data: stockSettings, error: settingsError } = await supabase
         .from("stock_setting")
         .select(`*`)
         .single();
 
-      if (error) {
-        setError(error.message);
+      if (settingsError) {
+        setError(settingsError.message);
+        return; // Early return on error
       }
 
-      if (stockSettings) {
-        const settings = stockSettings as IStockSettings;
-        setLowStockCounter(settings.low_stock_counter);
-      }
-    };
-
-    const fetchLowStockCount = async () => {
-      const { data, error } = await supabase
+      const settings = stockSettings as IStockSettings;
+      
+      // Then fetch variants using the counter we just got
+      const { data: variants, error: variantsError } = await supabase
         .from("product_variant")
         .select(`id, quantity`);
 
-      if (error) {
-        setError(error.message);
+      if (variantsError) {
+        setError(variantsError.message);
+        return;
       }
 
-      if (data) {
-        data.forEach((variant) => {
-          if (variant.quantity <= (lowStockCounter ?? 2)) {
+      if (variants) {
+        variants.forEach((variant) => {
+          if (variant.quantity <= (settings.low_stock_counter ?? 2)) {
             addLowStockVariant({
               variantId: variant.id,
               quantity: variant.quantity,
@@ -88,15 +108,11 @@ export default function NavLinks() {
       }
     };
 
-    fetchLowStockCount();
-    fetchLowStockCount();
+    fetchData();
   }, []);
 
   const isActive = (href: string): boolean => {
-    if (href === "/") {
-      return pathname === href;
-    }
-    return pathname.startsWith(href);
+    return pathname === href;
   };
 
   return (
@@ -104,40 +120,94 @@ export default function NavLinks() {
       {links.map((link) => {
         if (link.name === "Stocks") {
           return (
-            <Link
-              className={`relative w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
-                isActive(link.href)
-                  ? "text-white bg-black"
-                  : "text-black bg-white border border-black"
-              } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
-              key={link.name}
-              href={link.href}
-            >
-              {(error || lowStockVariants.length > 0) && (
-                <span className="absolute top-0 right-0 -mt-2 -mr-2 rounded-full bg-red-500 text-white text-sm px-2 py-0.5">
-                  {error ? "E" : lowStockVariants.length}
-                </span>
-              )}
+            <div key={link.name} className="flex flex-col w-full">
+              <Link
+                className={`relative w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
+                  isActive(link.href)
+                    ? "text-white bg-black"
+                    : "text-black bg-white border border-black"
+                } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
+                href={link.href}
+              >
+                {(error || lowStockVariants.length > 0) && (
+                  <span className="absolute top-0 right-0 -mt-2 -mr-2 rounded-full bg-red-500 text-white text-sm px-2 py-0.5">
+                    {error ? "E" : lowStockVariants.length}
+                  </span>
+                )}
 
-              <span>{link.icon}</span>
-              <p className="hidden md:block">{link.name}</p>
-            </Link>
+                <span>{link.icon}</span>
+                <p className="hidden md:block">{link.name}</p>
+              </Link>
+              {link.subLinks &&
+                link.subLinks.map((sLink) => (
+                  <div
+                    key={sLink.name}
+                    className="flex w-full justify-between pl-3 items-center"
+                  >
+                    <span>
+                      <CornerDownRight />
+                    </span>{" "}
+                    <div
+                      className={`px-3 max-w-fit flex space-x-1 items-center rounded-md font-medium ${
+                        isActive(sLink.href) // Changed from link.href to sLink.href
+                          ? "text-white bg-black"
+                          : "text-black bg-white border border-black"
+                      }`}
+                    >
+                      <Link
+                        className="text-sm flex h-[36px] grow items-center gap-2 "
+                        href={sLink.href}
+                      >
+                        <span>{sLink.icon}</span>
+                        <p>{sLink.name}</p>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+            </div>
           );
         }
 
         return (
-          <Link
-            className={`w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
-              isActive(link.href)
-                ? "text-white bg-black"
-                : "text-black bg-white border border-black"
-            } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
-            key={link.name}
-            href={link.href}
-          >
-            <span>{link.icon}</span>
-            <p className="hidden md:block">{link.name}</p>
-          </Link>
+          <div key={link.name} className="flex flex-col w-full">
+            <Link
+              className={`w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
+                isActive(link.href)
+                  ? "text-white bg-black"
+                  : "text-black bg-white border border-black"
+              } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
+              href={link.href}
+            >
+              <span>{link.icon}</span>
+              <p className="hidden md:block">{link.name}</p>
+            </Link>
+            {link.subLinks &&
+              link.subLinks.map((sLink) => (
+                <div
+                  key={sLink.name}
+                  className="flex w-full justify-between pl-3 items-center"
+                >
+                  <span>
+                    <CornerDownRight />
+                  </span>
+                  <div
+                    className={`px-3 max-w-fit flex space-x-1 items-center rounded-md font-medium ${
+                      isActive(sLink.href) // Changed from link.href to sLink.href
+                        ? "text-white bg-black"
+                        : "text-black bg-white border border-black"
+                    }`}
+                  >
+                    <Link
+                      className="text-sm flex h-[36px] grow items-center gap-2 "
+                      href={sLink.href}
+                    >
+                      <span>{sLink.icon}</span>
+                      <p>{sLink.name}</p>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+          </div>
         );
       })}
       <div className="md:w-full">

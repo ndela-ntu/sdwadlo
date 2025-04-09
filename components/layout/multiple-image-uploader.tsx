@@ -1,16 +1,25 @@
 import { X } from "lucide-react";
 import { useRef, useState } from "react";
 
-const MultipleImageUpload = ({
-  colorId,
-  onImagesChange,
-}: {
+type ClothingType = {
+  type: 'Clothing';
   colorId: number | undefined;
   onImagesChange: (
     colorId: number | undefined,
     images: { file: File; preview: string }[]
   ) => void;
-}) => {
+};
+
+type AccessoryType = {
+  type: 'Accessory';
+  onImagesChange: (
+    images: { file: File; preview: string }[] // No `colorId` needed
+  ) => void;
+};
+
+type Props = ClothingType | AccessoryType;
+
+const MultipleImageUpload = (props: Props) => {
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -23,7 +32,13 @@ const MultipleImageUpload = ({
 
       const newImages = [...images, ...filesArray];
       setImages(newImages);
-      onImagesChange(colorId, newImages); // Call after state update
+
+      // Call `onImagesChange` based on the type
+      if (props.type === 'Clothing') {
+        props.onImagesChange(props.colorId, newImages);
+      } else {
+        props.onImagesChange(newImages); // No `colorId` for Accessory
+      }
     }
   };
 
@@ -32,7 +47,13 @@ const MultipleImageUpload = ({
     URL.revokeObjectURL(newImages[index].preview);
     newImages.splice(index, 1);
     setImages(newImages);
-    onImagesChange(colorId, newImages); // Call after state update
+
+    // Call `onImagesChange` based on the type
+    if (props.type === 'Clothing') {
+      props.onImagesChange(props.colorId, newImages);
+    } else {
+      props.onImagesChange(newImages); // No `colorId` for Accessory
+    }
   };
 
   return (
