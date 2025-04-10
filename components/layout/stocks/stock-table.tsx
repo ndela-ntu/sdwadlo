@@ -142,7 +142,7 @@ export default function StockTable() {
   };
 
   return (
-    <Table className="table-fixed hover:text-black">
+    <Table className="table-fixed hover:text-eerieBlack">
       <TableCaption>A list of low stock products</TableCaption>
       <TableHeader>
         {loading ? (
@@ -177,7 +177,7 @@ export default function StockTable() {
               <TableRow
                 key={variant.id}
                 className={
-                  isLowStock ? "bg-red-500 text-white hover:text-black" : ""
+                  isLowStock ? "bg-red-500 text-white hover:text-eerieBlack" : ""
                 }
               >
                 <TableCell className="w-[7.5%]">
@@ -201,7 +201,7 @@ export default function StockTable() {
                     <Input
                       type="number"
                       placeholder="Quantity"
-                      className="text-black w-full"
+                      className="text-eerieBlack w-full"
                       value={editingStockAtId[variant.id] ?? ""}
                       onChange={(e) =>
                         setEditingStockAtId((prev) => ({

@@ -29,6 +29,7 @@ import { TagsSelector } from "../tags-selector";
 import { SubmitButton } from "../submit-button";
 import { ProductState, createProduct } from "@/app/product-actions";
 import isRecordOfStringArrays from "@/lib/is-record";
+import setOrAppendFormData from "@/lib/set-form-data";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -155,62 +156,39 @@ export default function CreateProductForm({
     <form
       className="w-full flex flex-col space-y-2.5"
       action={(formData) => {
-        if (formData.has("tags")) {
-          formData.set(
-            "tags",
-            JSON.stringify(selectedTags.map((tag) => tag.id))
-          );
-        } else {
-          formData.append(
-            "tags",
-            JSON.stringify(selectedTags.map((tag) => tag.id))
-          );
-        }
+        setOrAppendFormData(formData, {
+          key: "tags",
+          value: JSON.stringify(selectedTags.map((tag) => tag.id)),
+        });
 
         if (productType === "Clothing") {
-          if (formData.has("type")) {
-            formData.set("type", "Clothing");
-          } else {
-            formData.append("type", "Clothing");
-          }
+          setOrAppendFormData(formData, { key: "type", value: "Clothing" });
 
           Object.entries(imagesByColor).forEach(([colorId, images]) => {
             images.forEach((image, index) => {
-              if (formData.has(`image_${colorId}_${index}`)) {
-                formData.set(`image_${colorId}_${index}`, image.file);
-              } else {
-                formData.append(`image_${colorId}_${index}`, image.file);
-              }
+              setOrAppendFormData(formData, {
+                key: `image_${colorId}_${index}`,
+                value: image.file,
+              });
             });
           });
 
-          if (formData.has("selectedColorIds")) {
-            formData.set("selectedColorIds", JSON.stringify(selectedColorIds));
-          } else {
-            formData.append(
-              "selectedColorIds",
-              JSON.stringify(selectedColorIds)
-            );
-          }
-
-          if (formData.has("sizes")) {
-            formData.set("sizes", JSON.stringify(sizes));
-          } else {
-            formData.append("sizes", JSON.stringify(sizes));
-          }
+          setOrAppendFormData(formData, {
+            key: "selectedColorIds",
+            value: JSON.stringify(selectedColorIds),
+          });
+          setOrAppendFormData(formData, {
+            key: "sizes",
+            value: JSON.stringify(sizes),
+          });
         } else if (productType === "Accessory") {
-          if (formData.has("type")) {
-            formData.set("type", "Accessory");
-          } else {
-            formData.append("type", "Accessory");
-          }
+          setOrAppendFormData(formData, { key: "type", value: "Accessory" });
 
           images.forEach((image, index) => {
-            if (formData.has(`image_${index}`)) {
-              formData.set(`image_${index}`, image.file);
-            } else {
-              formData.append(`image_${index}`, image.file);
-            }
+            setOrAppendFormData(formData, {
+              key: `image_${index}`,
+              value: image.file,
+            });
           });
         }
 
@@ -541,11 +519,11 @@ export default function CreateProductForm({
                       }
                     }}
                     key={color.id}
-                    className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedColorIds.includes(color.id) ? "bg-chestNut text-white" : "bg-silver text-black"}`}
+                    className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedColorIds.includes(color.id) ? "bg-chestNut text-white" : "bg-silver text-eerieBlack"}`}
                   >
                     <span>{color.name}</span>
                     <div
-                      className="rounded-full p-2.5 border border-black"
+                      className="rounded-full p-2.5 border border-eerieBlack"
                       style={{ backgroundColor: `${color.hex}` }}
                     />
                   </button>
@@ -580,7 +558,7 @@ export default function CreateProductForm({
                       e.preventDefault();
                       setSelectedSizeType(sizeType);
                     }}
-                    className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedSizeType === sizeType ? "bg-chestNut text-white" : "bg-silver text-black"}`}
+                    className={`text-sm flex items-center space-x-2.5 max-w-fit p-2 rounded-lg ${selectedSizeType === sizeType ? "bg-chestNut text-white" : "bg-silver text-eerieBlack"}`}
                   >
                     {sizeType}
                   </button>

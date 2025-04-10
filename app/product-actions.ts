@@ -68,7 +68,6 @@ export async function createProduct(
   });
 
   const type = formData.get("type") as "Clothing" | "Accessory";
-  console.log(type);
   
   if (type === "Clothing") {
     // 2. Validate Variant Basic Fields (colors & size type)

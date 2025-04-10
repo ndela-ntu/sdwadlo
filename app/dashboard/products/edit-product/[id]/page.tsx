@@ -1,12 +1,25 @@
 import Header2 from "@/components/layout/header2";
-import CreateProductForm from "@/components/layout/product/create-product";
+import EditProductForm from "@/components/layout/product/edit-product";
 import ShadowedBox from "@/components/layout/shadowed-box";
 import { createClient } from "@/utils/supabase/server";
 import { Hammer } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
-export default async function Page() {
+export default async function (props: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
+  const params = await props.params;
+  const id = params.id;
+
+  const { data: product, error: productError } = await supabase
+    .from("product")
+    .select(`*`)
+    .eq("id", parseInt(id))
+    .single();
+
+  if (!product) {
+    notFound();
+  }
 
   const { data: colors, error: colorsError } = await supabase
     .from("color")
@@ -33,6 +46,7 @@ export default async function Page() {
     .select("*");
 
   if (
+    productError ||
     colorsError ||
     categoriesError ||
     sizesError ||
@@ -41,22 +55,28 @@ export default async function Page() {
     brandsError
   ) {
     return (
-      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message}`}</div>
+      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message}`}</div>
     );
   }
 
   return (
     <ShadowedBox>
       <div className="flex justify-between">
-        <Header2>Create Product</Header2>
-        <Link href={{pathname: "/dashboard/products/inventory", query: {ref: 'create-product'}}}>
+        <Header2>Edit Product</Header2>
+        <Link
+          href={{
+            pathname: "/dashboard/products/inventory",
+            query: { ref: "edit-product" },
+          }}
+        >
           <span className="p-2.5 bg-eerieBlack rounded-xl flex space-x-2.5 max-w-fit">
             <span className="text-white">Inventory</span>
             <Hammer className="text-white w-5 h-5" />
           </span>
         </Link>
       </div>
-      <CreateProductForm
+      <EditProductForm
+        product={product}
         colors={colors}
         categories={categories}
         sizes={sizes}

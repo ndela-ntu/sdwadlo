@@ -58,6 +58,11 @@ export default async function Page({
             <ArrowLeft className="w-5 h-5" />
           </Link>
         )}
+        {ref === "edit-product" && (
+          <Link href={`/dashboard/products/edit-product`}>
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+        )}
         {ref === "products" && (
           <Link href={`/dashboard/products`}>
             <ArrowLeft className="w-5 h-5" />

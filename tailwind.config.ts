@@ -19,7 +19,7 @@ const config = {
     },
     extend: {
       colors: {
-        eerieBlack: "#222222",
+        eerieeerieBlack: "#222222",
         silver: "#bfbfbf",
         chestNut: "#a44a3f",
         border: "hsl(var(--border))",

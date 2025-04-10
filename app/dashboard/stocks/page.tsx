@@ -1,3 +1,4 @@
+import Divider from "@/components/layout/divider";
 import Header1 from "@/components/layout/header1";
 import StockTable from "@/components/layout/stocks/stock-table";
 import { createClient } from "@/utils/supabase/server";
@@ -25,6 +26,7 @@ export default async function Page() {
           <Settings className="h-5 w-5" />
         </Link>
       </div>
+      <Divider />
       <StockTable />
     </div>
   );

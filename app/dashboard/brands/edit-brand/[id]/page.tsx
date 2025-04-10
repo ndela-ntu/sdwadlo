@@ -8,10 +8,11 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const params = await props.params;
   const id = params.id;
+  
   const { data: brand, error } = await supabase
     .from("brand")
     .select("*")
-    .eq("id", id)
+    .eq("id", parseInt(id))
     .single();
 
   if (!brand) {

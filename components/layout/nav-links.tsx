@@ -4,15 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SignOutButton from "./sign-out-button";
 import {
+  Banknote,
   Car,
+  ChartArea,
   ClipboardList,
   CornerDownRight,
   Hammer,
+  HandCoins,
   Home,
   House,
   LandPlot,
   Logs,
+  PiggyBank,
   Settings,
+  Ship,
   ShoppingBasket,
   Store,
   Trello,
@@ -62,6 +67,33 @@ const links: {
       },
     ],
   },
+  {
+    name: "Revenue",
+    href: "/dashboard/revenue",
+    icon: <HandCoins />,
+    subLinks: [
+      {
+        name: "Profits",
+        href: "/dashboard/revenue/profits",
+        icon: <Banknote />,
+      },
+      {
+        name: "Taxes",
+        href: "/dashboard/revenue/taxes",
+        icon: <PiggyBank />,
+      },
+      {
+        name: "Shipping",
+        href: "/dashboard/revenue/taxes",
+        icon: <Ship />,
+      },
+    ],
+  },
+  {
+    name: "Analytics",
+    href: "/dashboard/analytics",
+    icon: <ChartArea />,
+  },
 ];
 
 export default function NavLinks() {
@@ -85,7 +117,7 @@ export default function NavLinks() {
       }
 
       const settings = stockSettings as IStockSettings;
-      
+
       // Then fetch variants using the counter we just got
       const { data: variants, error: variantsError } = await supabase
         .from("product_variant")
@@ -115,17 +147,26 @@ export default function NavLinks() {
     return pathname === href;
   };
 
+  const sortedLinks = [...links]
+    .map((link) => ({
+      ...link,
+      subLinks: link.subLinks?.sort((a, b) =>
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+      ),
+    }))
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
   return (
     <div className="w-full flex md:flex-col justify-between items-center">
-      {links.map((link) => {
+      {sortedLinks.map((link) => {
         if (link.name === "Stocks") {
           return (
             <div key={link.name} className="flex flex-col w-full">
               <Link
                 className={`relative w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
                   isActive(link.href)
-                    ? "text-white bg-black"
-                    : "text-black bg-white border border-black"
+                    ? "text-white bg-eerieBlack"
+                    : "text-eerieBlack bg-white border border-eerieBlack"
                 } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
                 href={link.href}
               >
@@ -150,8 +191,8 @@ export default function NavLinks() {
                     <div
                       className={`px-3 max-w-fit flex space-x-1 items-center rounded-md font-medium ${
                         isActive(sLink.href) // Changed from link.href to sLink.href
-                          ? "text-white bg-black"
-                          : "text-black bg-white border border-black"
+                          ? "text-white bg-eerieBlack"
+                          : "text-eerieBlack bg-white border border-eerieBlack"
                       }`}
                     >
                       <Link
@@ -173,8 +214,8 @@ export default function NavLinks() {
             <Link
               className={`w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
                 isActive(link.href)
-                  ? "text-white bg-black"
-                  : "text-black bg-white border border-black"
+                  ? "text-white bg-eerieBlack"
+                  : "text-eerieBlack bg-white border border-eerieBlack"
               } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
               href={link.href}
             >
@@ -193,8 +234,8 @@ export default function NavLinks() {
                   <div
                     className={`px-3 max-w-fit flex space-x-1 items-center rounded-md font-medium ${
                       isActive(sLink.href) // Changed from link.href to sLink.href
-                        ? "text-white bg-black"
-                        : "text-black bg-white border border-black"
+                        ? "text-white bg-eerieBlack"
+                        : "text-eerieBlack bg-white border border-eerieBlack"
                     }`}
                   >
                     <Link
