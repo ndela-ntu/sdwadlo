@@ -17,7 +17,6 @@ import IMaterial from "@/models/material";
 import ISize from "@/models/size";
 import ISubcategory from "@/models/subcategory";
 import ITag from "@/models/tag";
-import { createClient } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useActionState, useEffect, useState } from "react";
@@ -30,11 +29,7 @@ import { SubmitButton } from "../submit-button";
 import { ProductState, createProduct } from "@/app/product-actions";
 import isRecordOfStringArrays from "@/lib/is-record";
 import setOrAppendFormData from "@/lib/set-form-data";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/utils/supabase/client";
 
 export default function CreateProductForm({
   colors,
@@ -51,6 +46,7 @@ export default function CreateProductForm({
   tags: ITag[];
   brands: IBrand[];
 }) {
+  const supabase = createClient();
   const initialState: ProductState = {
     message: null,
     errors: {},

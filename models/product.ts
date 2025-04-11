@@ -12,5 +12,5 @@ export default interface IProduct {
   price: number;
   subcategory: ISubcategory;
   material: IMaterial;
-  type: string;
+  type: 'Clothing' | 'Accessory';
 }

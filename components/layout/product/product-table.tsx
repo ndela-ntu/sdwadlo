@@ -14,6 +14,7 @@ import IProductVariant from "@/models/product-variant";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import React, { useEffect, useState } from "react";
+import ProductEllipsisMenu from "./product-ellipsis-menu";
 
 export default function ProductTable({
   variants,
@@ -97,7 +98,7 @@ export default function ProductTable({
               <TableCell>{product.category.name}</TableCell>
               <TableCell>{product.subcategory.name}</TableCell>
               <TableCell>{product.material.name}</TableCell>
-              <TableCell><EllipsisMenu id={product.id}/></TableCell>
+              <TableCell><ProductEllipsisMenu id={product.id}/></TableCell>
             </TableRow>
 
             {expandedProduct[product.id] &&

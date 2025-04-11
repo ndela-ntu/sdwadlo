@@ -13,13 +13,18 @@ export default async function (props: { params: Promise<{ id: string }> }) {
 
   const { data: product, error: productError } = await supabase
     .from("product")
-    .select(`*`)
+    .select(`*, brand(*), category(*), subcategory(*), material(*)`)
     .eq("id", parseInt(id))
     .single();
 
   if (!product) {
     notFound();
   }
+
+  const { data: variants, error: variantsError } = await supabase
+    .from("product_variant")
+    .select(`*, product(*), size(*), color(*)`)
+    .eq("product_id", parseInt(id));
 
   const { data: colors, error: colorsError } = await supabase
     .from("color")
@@ -52,10 +57,11 @@ export default async function (props: { params: Promise<{ id: string }> }) {
     sizesError ||
     materialsError ||
     tagsError ||
-    brandsError
+    brandsError || 
+    variantsError
   ) {
     return (
-      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message}`}</div>
+      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message || variantsError?.message }`}</div>
     );
   }
 
@@ -77,6 +83,7 @@ export default async function (props: { params: Promise<{ id: string }> }) {
       </div>
       <EditProductForm
         product={product}
+        variants={variants}
         colors={colors}
         categories={categories}
         sizes={sizes}

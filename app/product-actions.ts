@@ -68,7 +68,7 @@ export async function createProduct(
   });
 
   const type = formData.get("type") as "Clothing" | "Accessory";
-  
+
   if (type === "Clothing") {
     // 2. Validate Variant Basic Fields (colors & size type)
     const selectedColorIds = JSON.parse(
@@ -187,6 +187,7 @@ export async function createProduct(
           price,
           subcategory_id: parseInt(subcategory),
           material_id: parseInt(material),
+          type: "Clothing",
         })
         .select("id")
         .single();
@@ -327,7 +328,11 @@ export async function createProduct(
       !productValidation.success ||
       !hasImages
     ) {
-      console.log(accessoryValidation.success,productValidation.success, hasImages)
+      console.log(
+        accessoryValidation.success,
+        productValidation.success,
+        hasImages
+      );
       return {
         errors: productValidation.success
           ? {}
@@ -369,6 +374,7 @@ export async function createProduct(
           price,
           subcategory_id: parseInt(subcategory),
           material_id: parseInt(material),
+          type: "Accessory",
         })
         .select("id")
         .single();
@@ -454,6 +460,11 @@ export async function createProduct(
     };
   }
 
+  revalidatePath("/dashboard/products");
+  redirect("/dashboard/products");
+}
+
+export async function editProduct(prevState: ProductState, formData: FormData) {
   revalidatePath("/dashboard/products");
   redirect("/dashboard/products");
 }

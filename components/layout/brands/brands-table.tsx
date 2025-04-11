@@ -9,7 +9,7 @@ import {
   } from "@/components/ui/table";
   import IBrand from "@/models/brand";
   import Image from "next/image";
-  import EllipsisMenu from "./ellipsis-menu";
+import BrandEllipsisMenu from "./brand-ellipsis-menu";
   
   export default function BrandsTable({ brands }: { brands: IBrand[] }) {
     return (
@@ -41,7 +41,7 @@ import {
               </TableCell>
               <TableCell>{brand.name}</TableCell>
               <TableCell className="text-right">
-                <EllipsisMenu id={brand.id} />
+                <BrandEllipsisMenu id={brand.id} />
               </TableCell>
             </TableRow>
           ))}

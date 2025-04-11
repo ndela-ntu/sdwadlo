@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { MoreHorizontal, Edit, Trash, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,18 +7,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { deleteBrand } from "@/app/brand-actions";
+import { Edit, MoreVertical, Trash } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-export default function EllipsisMenu({ id }: { id: number }) {
+export default function ProductEllipsisMenu({ id }: { id: number }) {
   const router = useRouter();
 
   const handleEdit = () => {
-    router.push(`brands/edit-brand/${id}`);
+    router.push(`products/edit-product/${id}`);
   };
 
-  const handleDelete = async () => {
-    await deleteBrand(id);
-  };
+  const handleDelete = async () => {};
 
   return (
     <DropdownMenu>
