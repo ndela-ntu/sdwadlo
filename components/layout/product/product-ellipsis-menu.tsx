@@ -13,23 +13,32 @@ import { useRouter } from "next/navigation";
 export default function ProductEllipsisMenu({ id }: { id: number }) {
   const router = useRouter();
 
-  const handleEdit = () => {
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Stop event propagation
     router.push(`products/edit-product/${id}`);
   };
 
-  const handleDelete = async () => {};
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Stop event propagation
+    // Delete logic here
+  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 p-0"
+          onClick={(e) => e.stopPropagation()} // Stop propagation on trigger click
+        >
           <span className="bg-black p-2.5 text-white rounded-md">
             <MoreVertical className="h-5 w-5 " />
           </span>
           <span className="sr-only">Open menu</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
         <DropdownMenuItem onClick={handleEdit}>
           <Edit className="mr-2 h-4 w-4" />
           <span>Edit</span>

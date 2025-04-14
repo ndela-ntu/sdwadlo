@@ -51,6 +51,7 @@ export default function ProductTable({
           <TableHead className="w-[7.5%]">Brand</TableHead>
           <TableHead>Name</TableHead>
           <TableHead>Price</TableHead>
+          <TableHead>Product Type</TableHead>
           <TableHead>Category</TableHead>
           <TableHead>Subcategory</TableHead>
           <TableHead>Material</TableHead>
@@ -60,11 +61,11 @@ export default function ProductTable({
       <TableBody>
         {filteredProducts.map((product) => (
           <React.Fragment key={product.id}>
-            <TableRow
-              onClick={() => toggleExpand(product.id)}
-              className="cursor-pointer hover:bg-gray-100"
-            >
-              <TableCell className="cursor-pointer w-10">
+            <TableRow className="hover:bg-gray-100">
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer w-10"
+              >
                 <span
                   className={`text-white bg-chestNut rounded-full p-2.5 inline-block transform transition-transform duration-200 ${
                     expandedProduct[product.id] ? "rotate-90" : "rotate-0"
@@ -73,7 +74,10 @@ export default function ProductTable({
                   <ArrowRight className="h-5 w-5" />
                 </span>
               </TableCell>
-              <TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
                 <div className="flex flex-col space-y-1 items-center justify-center">
                   <span className="text-sm font-medium">
                     {product.brand.name}
@@ -93,12 +97,45 @@ export default function ProductTable({
                   </div>
                 </div>
               </TableCell>
-              <TableCell>{product.name}</TableCell>
-              <TableCell>R{product.price.toFixed(2)}</TableCell>
-              <TableCell>{product.category.name}</TableCell>
-              <TableCell>{product.subcategory.name}</TableCell>
-              <TableCell>{product.material.name}</TableCell>
-              <TableCell><ProductEllipsisMenu id={product.id}/></TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
+                {product.name}
+              </TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
+                R{product.price.toFixed(2)}
+              </TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
+                {product.type}
+              </TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
+                {product.category.name}
+              </TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
+                {product.subcategory.name}
+              </TableCell>
+              <TableCell
+                onClick={() => toggleExpand(product.id)}
+                className="cursor-pointer"
+              >
+                {product.material.name}
+              </TableCell>
+              <TableCell>
+                <ProductEllipsisMenu id={product.id} />
+              </TableCell>
             </TableRow>
 
             {expandedProduct[product.id] &&

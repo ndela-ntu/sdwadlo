@@ -2,7 +2,7 @@ import Header2 from "@/components/layout/header2";
 import EditProductForm from "@/components/layout/product/edit-product";
 import ShadowedBox from "@/components/layout/shadowed-box";
 import { createClient } from "@/utils/supabase/server";
-import { Hammer } from "lucide-react";
+import { ArrowLeft, Hammer } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -57,18 +57,23 @@ export default async function (props: { params: Promise<{ id: string }> }) {
     sizesError ||
     materialsError ||
     tagsError ||
-    brandsError || 
+    brandsError ||
     variantsError
   ) {
     return (
-      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message || variantsError?.message }`}</div>
+      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message || variantsError?.message}`}</div>
     );
   }
 
   return (
     <ShadowedBox>
       <div className="flex justify-between">
-        <Header2>Edit Product</Header2>
+        <div className="flex space-x-2.5 items-center">
+          <Link href={`/dashboard/products`}>
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <Header2>Edit Product</Header2>
+        </div>
         <Link
           href={{
             pathname: "/dashboard/products/inventory",

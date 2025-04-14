@@ -75,6 +75,7 @@ export default function CreateProductForm({
   const [quantity, setQuantity] = useState<number | "">("");
   const [quantities, setQuantities] = useState<{ [key: string]: number }>({});
   const [productType, setProductType] = useState<"Clothing" | "Accessory">();
+  const [selectedMaterial, setSelectedMaterial] = useState<string>();
 
   useEffect(() => {
     const fetchSubcategories = async () => {
@@ -411,7 +412,13 @@ export default function CreateProductForm({
         </div>
         <div className="flex flex-col space-y-2 p-3 w-full">
           <Label htmlFor="material">Material</Label>
-          <Select name="material">
+          <Select
+            name="material"
+            value={selectedMaterial}
+            onValueChange={(value) => {
+              setSelectedMaterial(value);
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>

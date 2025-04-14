@@ -7,7 +7,7 @@ export default async function Layout({
     <div className="flex flex-col gap-2 items-center justify-center p-2.5">
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center">
         <h1 className="text-eerieBlack text-5xl pb-5 italic font-black">
-          stock_setting
+          SDWADLO.CO
         </h1>
         <div className="h-screen w-full">{children}</div>
       </div>

@@ -2,7 +2,7 @@ import Header2 from "@/components/layout/header2";
 import CreateProductForm from "@/components/layout/product/create-product";
 import ShadowedBox from "@/components/layout/shadowed-box";
 import { createClient } from "@/utils/supabase/server";
-import { Hammer } from "lucide-react";
+import { ArrowLeft, Hammer } from "lucide-react";
 import Link from "next/link";
 
 export default async function Page() {
@@ -48,8 +48,18 @@ export default async function Page() {
   return (
     <ShadowedBox>
       <div className="flex justify-between">
-        <Header2>Create Product</Header2>
-        <Link href={{pathname: "/dashboard/products/inventory", query: {ref: 'create-product'}}}>
+        <div className="flex space-x-2.5 items-center">
+          <Link href={`/dashboard/products`}>
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <Header2>Create Product</Header2>
+        </div>
+        <Link
+          href={{
+            pathname: "/dashboard/products/inventory",
+            query: { ref: "create-product" },
+          }}
+        >
           <span className="p-2.5 bg-eerieBlack rounded-xl flex space-x-2.5 max-w-fit">
             <span className="text-white">Inventory</span>
             <Hammer className="text-white w-5 h-5" />

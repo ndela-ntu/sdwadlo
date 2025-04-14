@@ -29,6 +29,9 @@ import { useActionState, useEffect, useState } from "react";
 import { TagsSelector } from "../tags-selector";
 import Divider from "../divider";
 import MultipleImageUpload from "../multiple-image-uploader";
+import setOrAppendFormData from "@/lib/set-form-data";
+import isRecordOfStringArrays from "@/lib/is-record";
+import { SubmitButton } from "../submit-button";
 
 export default function EditProductForm({
   product,
@@ -60,6 +63,7 @@ export default function EditProductForm({
     initialState
   );
 
+  const [isLoadingSub, setIsLoadingSub] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [subError, setSubError] = useState<string | null>(null);
 
@@ -75,9 +79,9 @@ export default function EditProductForm({
   );
   const [subcategories, setSubcategories] = useState<ISubcategory[]>([]);
   const [selectedColorIds, setSelectedColorIds] = useState<number[]>([]);
-  const [selectedSizeType, setSelectedSizeType] = useState<
-    string | undefined
-  >();
+  const [selectedSizeType, setSelectedSizeType] = useState<string | undefined>(
+    sizes?.[0]?.type
+  );
   const [selectedTags, setSelectedTags] = useState<ITag[]>(tags);
   const [name, setName] = useState<string>(product.name);
   const [description, setDescription] = useState<string>(product.description);
@@ -87,25 +91,18 @@ export default function EditProductForm({
   const [productType, setProductType] = useState<"Clothing" | "Accessory">(
     product.type
   );
+  const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
+  const [selectedMaterial, setSelectedMaterial] = useState<string>(
+    product.material.id.toString()
+  );
+  const [selectedSubcat, setSelectedSubcat] = useState<string>(
+    product.subcategory.id.toString()
+  );
 
   useEffect(() => {
-    const initVariables = async () => {
+    const initVariables = () => {
       try {
         setIsLoading(true);
-
-        // Fetch subcategories
-        const { data: subcategories, error } = await supabase
-          .from("subcategory")
-          .select("*")
-          .eq("category_id", parseInt(selectedCategoryId));
-
-        if (error) {
-          setSubError(error.message);
-        } else {
-          setSubcategories(subcategories);
-        }
-
-        // Extract selected color IDs
         const colorIds = Array.from(
           new Set(
             variants.map((v) => v.color?.id).filter((id): id is number => !!id)
@@ -113,17 +110,22 @@ export default function EditProductForm({
         );
         setSelectedColorIds(colorIds);
 
-        // Set size type
-        setSelectedSizeType(sizes?.[0]?.type);
-
-        // Set quantities
         if (product.type === "Clothing") {
-          const q: { [key: string]: number } = {};
-          variants.forEach((variant) => {
-            const key = `${variant.color?.id}_${variant.size?.id}`;
-            q[key] = variant.quantity;
-          });
-          setQuantities(q);
+          if (selectedSizeType === "alpha" || selectedSizeType === "numeric") {
+            const q: { [key: string]: number } = {};
+            variants.forEach((variant) => {
+              const key = `quantity_${variant.color?.id}_${variant.size?.id}`;
+              q[key] = variant.quantity;
+            });
+            setQuantities(q);
+          } else {
+            const q: { [key: string]: number } = {};
+            variants.forEach((variant) => {
+              const key = `quantity_${variant.color?.id}`;
+              q[key] = variant.quantity;
+            });
+            setQuantities(q);
+          }
         } else {
           const quantity = variants.find(
             (variant) => variant.product.id === product.id
@@ -138,12 +140,18 @@ export default function EditProductForm({
     };
 
     initVariables();
-  }, [product.id, selectedCategoryId]); // 👈 include `product.id` if product can change
+  }, [product.id]);
+
+  useEffect(() => {
+    if (product?.subcategory?.id) {
+      setSelectedSubcat(product.subcategory.id.toString());
+    }
+  }, [product.subcategory]);
 
   useEffect(() => {
     const fetchSubcategories = async () => {
       if (selectedCategoryId) {
-        setIsLoading(true);
+        setIsLoadingSub(true);
         try {
           const { data: subcategories, error } = await supabase
             .from("subcategory")
@@ -152,17 +160,27 @@ export default function EditProductForm({
 
           if (error) {
             setSubError(error.message);
-            return;
-          }
+          } else {
+            setSubcategories(subcategories || []);
 
-          if (subcategories) {
-            setSubcategories(subcategories);
+            // Reset selection if current selection isn't in new subcategories
+            if (selectedSubcat && subcategories) {
+              const isValid = subcategories.some(
+                (sc) => sc.id.toString() === selectedSubcat
+              );
+              if (!isValid) setSelectedSubcat("");
+            }
+            console.log("selectedCategoryId", selectedCategoryId);
+            console.log("selectedSubcat", selectedSubcat);
+            console.log(
+              "fetched subcategories",
+              subcategories.map((s) => s.id.toString())
+            );
           }
         } catch (error) {
-          setSubError("Failed to load subcategories");
-          console.error(error);
+          setSubError("Error fetching subcategories");
         } finally {
-          setIsLoading(false);
+          setIsLoadingSub(false);
         }
       }
     };
@@ -221,7 +239,63 @@ export default function EditProductForm({
   }
 
   return (
-    <form>
+    <form
+      className="w-full flex flex-col space-y-2.5"
+      action={(formData) => {
+        setOrAppendFormData(formData, {
+          key: "typeChanged",
+          value: (product.type === productType).toString(),
+        });
+
+        setOrAppendFormData(formData, {
+          key: "removedImageUrls",
+          value: JSON.stringify(removedImageUrls),
+        });
+
+        setOrAppendFormData(formData, {
+          key: "productId",
+          value: product.id.toString(),
+        });
+
+        setOrAppendFormData(formData, {
+          key: "tags",
+          value: JSON.stringify(selectedTags.map((tag) => tag.id)),
+        });
+
+        if (productType === "Clothing") {
+          setOrAppendFormData(formData, { key: "type", value: "Clothing" });
+
+          Object.entries(imagesByColor).forEach(([colorId, images]) => {
+            images.forEach((image, index) => {
+              setOrAppendFormData(formData, {
+                key: `image_${colorId}_${index}`,
+                value: image.file,
+              });
+            });
+          });
+
+          setOrAppendFormData(formData, {
+            key: "selectedColorIds",
+            value: JSON.stringify(selectedColorIds),
+          });
+          setOrAppendFormData(formData, {
+            key: "sizes",
+            value: JSON.stringify(sizes),
+          });
+        } else if (productType === "Accessory") {
+          setOrAppendFormData(formData, { key: "type", value: "Accessory" });
+
+          images.forEach((image, index) => {
+            setOrAppendFormData(formData, {
+              key: `image_${index}`,
+              value: image.file,
+            });
+          });
+        }
+
+        formAction(formData);
+      }}
+    >
       <div className="border border-gray-200 rounded-md max-w-[60%]">
         <div className="flex flex-col space-y-2 p-3">
           <Label htmlFor="category">Product Type</Label>
@@ -343,7 +417,7 @@ export default function EditProductForm({
         </div>
         <div className="flex flex-col space-y-2 p-3">
           <Label htmlFor="subcategory">Subcategory</Label>
-          {isLoading ? (
+          {isLoadingSub ? (
             <Loader2 className="animate-spin" />
           ) : subError ? (
             <div className="text-red-500">{subError}</div>
@@ -351,6 +425,8 @@ export default function EditProductForm({
             <Select
               disabled={selectedCategoryId === undefined}
               name="subcategory"
+              value={selectedSubcat}
+              onValueChange={setSelectedSubcat}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select subcategory" />
@@ -442,7 +518,13 @@ export default function EditProductForm({
         </div>
         <div className="flex flex-col space-y-2 p-3 w-full">
           <Label htmlFor="material">Material</Label>
-          <Select name="material">
+          <Select
+            name="material"
+            value={selectedMaterial}
+            onValueChange={(value) => {
+              setSelectedMaterial(value);
+            }}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select material" />
             </SelectTrigger>
@@ -492,6 +574,7 @@ export default function EditProductForm({
             <MultipleImageUpload
               type="Accessory"
               onImagesChange={handleAccessoryImagesChange}
+              initialImageUrls={getUniqueImageUrls(variants)}
             />
             <div id="name-error" aria-live="polite" aria-atomic="true">
               {Array.isArray(state.variantErrors?.image) &&
@@ -617,6 +700,11 @@ export default function EditProductForm({
                         type="Clothing"
                         colorId={color?.id}
                         onImagesChange={handleClothingImagesChange}
+                        initialImageUrls={getUniqueImageUrls(
+                          variants.filter(
+                            (variant) => variant.color?.id === color?.id
+                          )
+                        )}
                       />
                       <div
                         id="name-error"
@@ -646,7 +734,11 @@ export default function EditProductForm({
                                 value={
                                   quantities[
                                     `quantity_${color?.id}_${size.id}`
-                                  ] || ""
+                                  ] !== undefined
+                                    ? quantities[
+                                        `quantity_${color?.id}_${size.id}`
+                                      ]
+                                    : ""
                                 }
                                 onChange={(e) => {
                                   const key = `quantity_${color?.id}_${size.id}`;
@@ -700,6 +792,11 @@ export default function EditProductForm({
                         type="Clothing"
                         colorId={color?.id}
                         onImagesChange={handleClothingImagesChange}
+                        initialImageUrls={getUniqueImageUrls(
+                          variants.filter(
+                            (variant) => variant.color?.id === color?.id
+                          )
+                        )}
                       />
                       <div
                         id="name-error"
@@ -729,7 +826,11 @@ export default function EditProductForm({
                                 value={
                                   quantities[
                                     `quantity_${color?.id}_${size.id}`
-                                  ] || ""
+                                  ] !== undefined
+                                    ? quantities[
+                                        `quantity_${color?.id}_${size.id}`
+                                      ]
+                                    : ""
                                 }
                                 onChange={(e) => {
                                   const key = `quantity_${color?.id}_${size.id}`;
@@ -783,6 +884,11 @@ export default function EditProductForm({
                         type="Clothing"
                         colorId={color?.id}
                         onImagesChange={handleClothingImagesChange}
+                        initialImageUrls={getUniqueImageUrls(
+                          variants.filter(
+                            (variant) => variant.color?.id === color?.id
+                          )
+                        )}
                       />
                       <div
                         id="name-error"
@@ -803,7 +909,11 @@ export default function EditProductForm({
                         placeholder="Quantity"
                         className="max-w-fit"
                         name={`quantity_${color?.id}`}
-                        value={quantities[`quantity_${color?.id}`] || ""}
+                        value={
+                          quantities[`quantity_${color?.id}`] !== undefined
+                            ? quantities[`quantity_${color?.id}`]
+                            : ""
+                        }
                         onChange={(e) => {
                           const key = `quantity_${color?.id}`;
                           const value = Number(e.target.value);
@@ -848,4 +958,9 @@ export default function EditProductForm({
       </SubmitButton>
     </form>
   );
+}
+
+function getUniqueImageUrls(variants: IProductVariant[]): string[] {
+  const allImageUrls = variants.flatMap((variant) => variant.image_urls);
+  return Array.from(new Set(allImageUrls));
 }

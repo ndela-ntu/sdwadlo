@@ -15,7 +15,6 @@ export default async function Page() {
     <div>{`An error occurred: ${variantsError?.message}`}</div>;
   }
   
-
   return (
     <div className="flex flex-col space-y-2">
       <Header1>Products</Header1>

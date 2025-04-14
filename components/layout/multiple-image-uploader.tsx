@@ -1,27 +1,44 @@
 import { X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 
 type ClothingType = {
   type: 'Clothing';
   colorId: number | undefined;
+  initialImageUrls?: string[];
   onImagesChange: (
     colorId: number | undefined,
-    images: { file: File; preview: string }[]
+    images: { file: File; preview: string }[],
+    removedUrls?: string[]
   ) => void;
 };
 
 type AccessoryType = {
   type: 'Accessory';
+  initialImageUrls?: string[];
   onImagesChange: (
-    images: { file: File; preview: string }[] // No `colorId` needed
+    images: { file: File; preview: string }[],
+    removedUrls?: string[]
   ) => void;
 };
 
 type Props = ClothingType | AccessoryType;
 
 const MultipleImageUpload = (props: Props) => {
-  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
+  const [images, setImages] = useState<{ file: File; preview: string; url?: string }[]>([]);
+  const [removedUrls, setRemovedUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize with any provided image URLs
+  useEffect(() => {
+    if (props.initialImageUrls && props.initialImageUrls.length > 0) {
+      const initialImages = props.initialImageUrls.map(url => ({
+        preview: url,
+        url,
+        file: new File([], url.split('/').pop() || 'image.jpg') // Create a dummy file
+      }));
+      setImages(initialImages);
+    }
+  }, [props.initialImageUrls]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -35,24 +52,32 @@ const MultipleImageUpload = (props: Props) => {
 
       // Call `onImagesChange` based on the type
       if (props.type === 'Clothing') {
-        props.onImagesChange(props.colorId, newImages);
+        props.onImagesChange(props.colorId, newImages, removedUrls);
       } else {
-        props.onImagesChange(newImages); // No `colorId` for Accessory
+        props.onImagesChange(newImages, removedUrls);
       }
     }
   };
 
   const removeImage = (index: number) => {
     const newImages = [...images];
-    URL.revokeObjectURL(newImages[index].preview);
+    const removedImage = newImages[index];
+    
+    // If this was an initial URL image, add to removedUrls
+    if (removedImage.url) {
+      const newRemovedUrls = [...removedUrls, removedImage.url];
+      setRemovedUrls(newRemovedUrls);
+    }
+    
+    URL.revokeObjectURL(removedImage.preview);
     newImages.splice(index, 1);
     setImages(newImages);
 
     // Call `onImagesChange` based on the type
     if (props.type === 'Clothing') {
-      props.onImagesChange(props.colorId, newImages);
+      props.onImagesChange(props.colorId, newImages, removedImage.url ? [...removedUrls, removedImage.url] : removedUrls);
     } else {
-      props.onImagesChange(newImages); // No `colorId` for Accessory
+      props.onImagesChange(newImages, removedImage.url ? [...removedUrls, removedImage.url] : removedUrls);
     }
   };
 
