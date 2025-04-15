@@ -58,9 +58,9 @@ export default function CreateProductForm({
   );
 
   const [imagesByColor, setImagesByColor] = useState<{
-    [key: number]: { file: File; preview: string }[];
+    [key: number]: (string | File)[];
   }>({});
-  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
+  const [images, setImages] = useState<(string | File)[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string>();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>();
   const [subcategories, setSubcategories] = useState<ISubcategory[]>([]);
@@ -107,15 +107,13 @@ export default function CreateProductForm({
     fetchSubcategories();
   }, [selectedCategoryId]);
 
-  const handleAccessoryImagesChange = (
-    images: { file: File; preview: string }[]
-  ) => {
+  const handleAccessoryImagesChange = (images: (string | File)[]) => {
     setImages(images);
   };
 
   const handleClothingImagesChange = (
     colorId: number | undefined,
-    images: { file: File; preview: string }[]
+    images: (string | File)[]
   ) => {
     if (colorId) {
       setImagesByColor((prev) => ({
@@ -165,7 +163,7 @@ export default function CreateProductForm({
             images.forEach((image, index) => {
               setOrAppendFormData(formData, {
                 key: `image_${colorId}_${index}`,
-                value: image.file,
+                value: image,
               });
             });
           });
@@ -184,7 +182,7 @@ export default function CreateProductForm({
           images.forEach((image, index) => {
             setOrAppendFormData(formData, {
               key: `image_${index}`,
-              value: image.file,
+              value: image,
             });
           });
         }

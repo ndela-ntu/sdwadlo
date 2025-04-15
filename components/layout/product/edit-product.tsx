@@ -68,9 +68,9 @@ export default function EditProductForm({
   const [subError, setSubError] = useState<string | null>(null);
 
   const [imagesByColor, setImagesByColor] = useState<{
-    [key: number]: { file: File; preview: string }[];
+    [key: number]: (string | File)[];
   }>({});
-  const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
+  const [images, setImages] = useState<(string | File)[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string>(
     product.brand.id.toString()
   );
@@ -126,11 +126,22 @@ export default function EditProductForm({
             });
             setQuantities(q);
           }
+          const c: { [key: string]: (string | File)[] } = {};
+          variants.forEach((variant) => {
+            const key = `${variant.color?.id}`;
+            c[key] = variant.image_urls;
+          });
+          setImagesByColor(c);
         } else {
           const quantity = variants.find(
             (variant) => variant.product.id === product.id
           )?.quantity;
           setQuantity(quantity ?? "");
+
+          const imageUrls = variants.find(
+            (variant) => variant.product.id === product.id
+          )?.image_urls;
+          setImages(imageUrls ?? []);
         }
       } catch (error) {
         console.error(error);
@@ -170,12 +181,6 @@ export default function EditProductForm({
               );
               if (!isValid) setSelectedSubcat("");
             }
-            console.log("selectedCategoryId", selectedCategoryId);
-            console.log("selectedSubcat", selectedSubcat);
-            console.log(
-              "fetched subcategories",
-              subcategories.map((s) => s.id.toString())
-            );
           }
         } catch (error) {
           setSubError("Error fetching subcategories");
@@ -189,20 +194,25 @@ export default function EditProductForm({
   }, [selectedCategoryId]);
 
   const handleAccessoryImagesChange = (
-    images: { file: File; preview: string }[]
+    images: (string | File)[],
+    removedUrls?: string[] | undefined
   ) => {
     setImages(images);
+    setRemovedImageUrls(removedUrls ?? []);
   };
 
   const handleClothingImagesChange = (
     colorId: number | undefined,
-    images: { file: File; preview: string }[]
+    images: (string | File)[],
+    removedUrls?: string[] | undefined
   ) => {
     if (colorId) {
       setImagesByColor((prev) => ({
         ...prev,
         [colorId]: images,
       }));
+
+      setRemovedImageUrls(removedUrls ?? []);
     }
   };
 
@@ -262,14 +272,20 @@ export default function EditProductForm({
           value: JSON.stringify(selectedTags.map((tag) => tag.id)),
         });
 
+        setOrAppendFormData(formData, {
+          key: "subcategory",
+          value: selectedSubcat,
+        });
+
         if (productType === "Clothing") {
           setOrAppendFormData(formData, { key: "type", value: "Clothing" });
 
           Object.entries(imagesByColor).forEach(([colorId, images]) => {
             images.forEach((image, index) => {
+              console.log(image);
               setOrAppendFormData(formData, {
                 key: `image_${colorId}_${index}`,
-                value: image.file,
+                value: image,
               });
             });
           });
@@ -288,12 +304,14 @@ export default function EditProductForm({
           images.forEach((image, index) => {
             setOrAppendFormData(formData, {
               key: `image_${index}`,
-              value: image.file,
+              value: image,
             });
           });
         }
 
-        formAction(formData);
+        const imageKeys = Array.from(formData.keys()).filter((key) => key.startsWith('image'));
+        imageKeys.forEach((key) => console.log(key, formData.get(key)));
+        //formAction(formData);
       }}
     >
       <div className="border border-gray-200 rounded-md max-w-[60%]">

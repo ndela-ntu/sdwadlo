@@ -2,83 +2,88 @@ import { X } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 
 type ClothingType = {
-  type: 'Clothing';
+  type: "Clothing";
   colorId: number | undefined;
   initialImageUrls?: string[];
   onImagesChange: (
     colorId: number | undefined,
-    images: { file: File; preview: string }[],
+    images: (string | File)[],
     removedUrls?: string[]
   ) => void;
 };
 
 type AccessoryType = {
-  type: 'Accessory';
+  type: "Accessory";
   initialImageUrls?: string[];
-  onImagesChange: (
-    images: { file: File; preview: string }[],
-    removedUrls?: string[]
-  ) => void;
+  onImagesChange: (images: (string | File)[], removedUrls?: string[]) => void;
 };
 
 type Props = ClothingType | AccessoryType;
 
 const MultipleImageUpload = (props: Props) => {
-  const [images, setImages] = useState<{ file: File; preview: string; url?: string }[]>([]);
+  const [images, setImages] = useState<
+    { file: File; preview: string; url?: string }[]
+  >([]);
   const [removedUrls, setRemovedUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize with any provided image URLs
   useEffect(() => {
     if (props.initialImageUrls && props.initialImageUrls.length > 0) {
-      const initialImages = props.initialImageUrls.map(url => ({
+      const initialImages = props.initialImageUrls.map((url) => ({
         preview: url,
         url,
-        file: new File([], url.split('/').pop() || 'image.jpg') // Create a dummy file
+        file: new File([], url.split("/").pop() || "image.jpg"),
       }));
       setImages(initialImages);
     }
-  }, [props.initialImageUrls]);
-
+  }, []);
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const filesArray = Array.from(e.target.files).map((file) => ({
-        file,
-        preview: URL.createObjectURL(file),
-      }));
+      const filesArray: { file: File; preview: string; url?: string }[] =
+        Array.from(e.target.files).map((file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+        }));
 
       const newImages = [...images, ...filesArray];
       setImages(newImages);
 
-      // Call `onImagesChange` based on the type
-      if (props.type === 'Clothing') {
-        props.onImagesChange(props.colorId, newImages, removedUrls);
+      const callbackImages = newImages.map((image) =>
+        image.url ? image.url : image.file
+      );
+
+      if (props.type === "Clothing") {
+        props.onImagesChange(props.colorId, callbackImages, removedUrls);
       } else {
-        props.onImagesChange(newImages, removedUrls);
+        props.onImagesChange(callbackImages, removedUrls);
       }
     }
   };
-
   const removeImage = (index: number) => {
     const newImages = [...images];
     const removedImage = newImages[index];
-    
-    // If this was an initial URL image, add to removedUrls
-    if (removedImage.url) {
-      const newRemovedUrls = [...removedUrls, removedImage.url];
-      setRemovedUrls(newRemovedUrls);
-    }
-    
-    URL.revokeObjectURL(removedImage.preview);
     newImages.splice(index, 1);
-    setImages(newImages);
 
-    // Call `onImagesChange` based on the type
-    if (props.type === 'Clothing') {
-      props.onImagesChange(props.colorId, newImages, removedImage.url ? [...removedUrls, removedImage.url] : removedUrls);
+    const newRemovedUrls =
+      removedImage.url != null
+        ? [...removedUrls, removedImage.url]
+        : removedUrls;
+
+    setImages(newImages);
+    setRemovedUrls(newRemovedUrls);
+
+    const callbackImages = newImages.map((image) =>
+      image.url ? image.url : image.file
+    );
+
+    if (props.type === "Clothing") {
+      props.onImagesChange(props.colorId, callbackImages, newRemovedUrls);
     } else {
-      props.onImagesChange(newImages, removedImage.url ? [...removedUrls, removedImage.url] : removedUrls);
+      props.onImagesChange(callbackImages, newRemovedUrls);
     }
+
+    URL.revokeObjectURL(removedImage.preview);
   };
 
   return (

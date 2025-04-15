@@ -480,6 +480,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
   const type = formData.get("type") as "Clothing" | "Accessory";
   const typeChanged = formData.get("typeChanged") === "true";
   const productId = formData.get("productId") as string;
+  const removedImageUrls = JSON.parse(formData.get('removedImageUrls') as string) as string[];
 
   if (type === "Clothing") {
     // 2. Validate Variant Basic Fields (colors & size type)
@@ -502,9 +503,9 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
     // Validate at least one image per color
     selectedColorIds.forEach((colorId) => {
-      const hasImages = Array.from(formData.keys()).some((key) =>
-        key.startsWith(`image_${colorId}_`)
-      );
+      const hasImages = Array.from(formData.keys()).some((key) => {
+        key.startsWith(`image_${colorId}_`);
+      });
       if (!hasImages) {
         (variantErrors.image! as Record<string, string[]>)[colorId] = [
           "At least one image is required",
@@ -631,38 +632,49 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         }
       }
 
+      if (removedImageUrls.length > 0) {
+        await Promise.all(
+          removedImageUrls.map(async (imageUrl) => {
+            await deleteFileFromS3(imageUrl);
+          })
+        );
+      }
+
       //Delete images and variants
       if (typeChanged) {
         const { data: variants, error: variantsError } = await supabase
           .from("product_variant")
           .select("*")
           .eq("product_id", productId);
-      
+
         if (variantsError) {
           return <ProductState>{
             message: variantsError.message,
           };
         }
-      
+
         const productVariants = variants as IProductVariant[];
-      
+
         if (productVariants.length > 0) {
-          const imageUrls: string[] = productVariants.flatMap((variant) => variant.image_urls || []);
-      
+          const imageUrls: string[] = productVariants.flatMap(
+            (variant) => variant.image_urls || []
+          );
+          console.log(imageUrls);
+
           // Delete images from S3
           await Promise.all(
             imageUrls.map(async (imageUrl) => {
               await deleteFileFromS3(imageUrl);
             })
           );
-      
+
           // Delete product variants from Supabase
           const variantIds = productVariants.map((variant) => variant.id);
           const { error: deleteError } = await supabase
             .from("product_variant")
             .delete()
             .in("id", variantIds);
-      
+
           if (deleteError) {
             return <ProductState>{
               message: deleteError.message,
@@ -670,7 +682,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
           }
         }
       }
-      
 
       //Saving variant data goes here...
       for (const colorId of colors) {
@@ -680,26 +691,39 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
         const imageUrls: string[] = [];
         for (const key of imageKeys) {
-          const imageFile = formData.get(key) as File;
-          try {
-            const url = await uploadFileToS3({
-              file: imageFile,
-              folder: "product_images",
-            });
-            imageUrls.push(url);
-          } catch (error) {
-            console.error("Failed to upload image:", error);
-            return {
-              errors: {},
-              variantErrors: {},
-              message: "Failed to upload product images",
-            };
+          const value = formData.get(key);
+
+          if (typeof value === "string") {
+            imageUrls.push(value);
+          } else {
+            const imageFile = value;
+            try {
+              if (imageFile) {
+                const url = await uploadFileToS3({
+                  file: imageFile,
+                  folder: "product_images",
+                });
+                imageUrls.push(url);
+              }
+            } catch (error) {
+              console.error("Failed to upload image:", error);
+              return {
+                errors: {},
+                variantErrors: {},
+                message: "Failed to upload product images",
+              };
+            }
           }
         }
 
         if (sizeType === "none") {
           const quantityKey = `quantity_${colorId}`;
           const quantity = parseInt(formData.get(quantityKey) as string);
+          const { data: variantId, error: fetchVariantError } = await supabase
+            .from("product_variant")
+            .select("id")
+            .eq("product_id", productId)
+            .single();
 
           const { error: variantError } = await supabase
             .from("product_variant")
@@ -709,13 +733,14 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
               size_id: null,
               quantity,
               image_urls: imageUrls,
-            });
+            })
+            .eq("id", variantId);
 
-          if (variantError) {
+          if (variantError || fetchVariantError) {
             return {
               errors: {},
               variantErrors: {},
-              message: variantError.message,
+              message: variantError?.message || fetchVariantError?.message,
             };
           }
         } else {
@@ -724,22 +749,29 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
           for (const size of sizesForType) {
             const quantityKey = `quantity_${colorId}_${size.id}`;
             const quantity = parseInt(formData.get(quantityKey) as string);
+            const { data: variantId, error: fetchVariantError } = await supabase
+              .from("product_variant")
+              .select("id")
+              .eq("product_id", productId)
+              .eq("size_id", size.id)
+              .single();
 
             const { error: variantError } = await supabase
               .from("product_variant")
-              .insert({
+              .update({
                 product_id: productId,
                 color_id: colorId,
                 size_id: size.id,
                 quantity,
                 image_urls: imageUrls,
-              });
+              })
+              .eq("id", variantId);
 
-            if (variantError) {
+            if (variantError || fetchVariantError) {
               return {
                 errors: {},
                 variantErrors: {},
-                message: variantError.message,
+                message: variantError?.message || fetchVariantError?.message,
               };
             }
           }
