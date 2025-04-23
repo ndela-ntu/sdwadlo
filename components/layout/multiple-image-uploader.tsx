@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 type ClothingType = {
   type: "Clothing";
   colorId: number | undefined;
-  initialImageUrls?: string[];
+  initialImageUrls?: (string | File)[];
   onImagesChange: (
     colorId: number | undefined,
     images: (string | File)[],
@@ -14,7 +14,7 @@ type ClothingType = {
 
 type AccessoryType = {
   type: "Accessory";
-  initialImageUrls?: string[];
+  initialImageUrls?: (string | File)[];
   onImagesChange: (images: (string | File)[], removedUrls?: string[]) => void;
 };
 
@@ -27,17 +27,27 @@ const MultipleImageUpload = (props: Props) => {
   const [removedUrls, setRemovedUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize with any provided image URLs
+  // Initialize with any provided image URLs or Files
   useEffect(() => {
     if (props.initialImageUrls && props.initialImageUrls.length > 0) {
-      const initialImages = props.initialImageUrls.map((url) => ({
-        preview: url,
-        url,
-        file: new File([], url.split("/").pop() || "image.jpg"),
-      }));
+      const initialImages = props.initialImageUrls.map((item) => {
+        if (typeof item === "string") {
+          return {
+            preview: item,
+            url: item,
+            file: new File([], item.split("/").pop() || "image.jpg"),
+          };
+        } else {
+          return {
+            file: item,
+            preview: URL.createObjectURL(item),
+          };
+        }
+      });
       setImages(initialImages);
     }
-  }, []);
+  }, [props.initialImageUrls]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const filesArray: { file: File; preview: string; url?: string }[] =
@@ -60,6 +70,7 @@ const MultipleImageUpload = (props: Props) => {
       }
     }
   };
+
   const removeImage = (index: number) => {
     const newImages = [...images];
     const removedImage = newImages[index];

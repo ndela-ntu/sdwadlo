@@ -80,9 +80,11 @@ export default function EditProductForm({
   const [subcategories, setSubcategories] = useState<ISubcategory[]>([]);
   const [selectedColorIds, setSelectedColorIds] = useState<number[]>([]);
   const [selectedSizeType, setSelectedSizeType] = useState<string | undefined>(
-    sizes?.[0]?.type
+    variants.find((v) => v.size?.type)?.size?.type
   );
-  const [selectedTags, setSelectedTags] = useState<ITag[]>(tags);
+  const [selectedTags, setSelectedTags] = useState<ITag[]>(
+    product.product_tag.map((item) => item.tag)
+  );
   const [name, setName] = useState<string>(product.name);
   const [description, setDescription] = useState<string>(product.description);
   const [price, setPrice] = useState<number | "">(product.price);
@@ -254,7 +256,7 @@ export default function EditProductForm({
       action={(formData) => {
         setOrAppendFormData(formData, {
           key: "typeChanged",
-          value: (product.type === productType).toString(),
+          value: (product.type !== productType).toString(),
         });
 
         setOrAppendFormData(formData, {
@@ -278,11 +280,46 @@ export default function EditProductForm({
         });
 
         if (productType === "Clothing") {
+          if (selectedSizeType) {
+            setOrAppendFormData(formData, {
+              key: "sizeType",
+              value: selectedSizeType,
+            });
+          }
+
+          const sizeType = variants.find((v) => v.size?.type)?.size?.type;
+
+          setOrAppendFormData(formData, {
+            key: "sizeTypeChanged",
+            value: (selectedSizeType !== sizeType).toString(),
+          });
+
+          setOrAppendFormData(formData, {
+            key: "unselectedColorIds",
+            value: JSON.stringify(
+              colors
+                .filter((color) => !selectedColorIds.includes(color.id))
+                .map((color) => color.id)
+            ),
+          });
+
+          const activeColorIds = Array.from(
+            new Set(variants.flatMap((variant) => variant.color?.id ?? 0))
+          );
+
+          console.log(activeColorIds, selectedColorIds);
+          setOrAppendFormData(formData, {
+            key: "newlySelectedColors",
+            value: JSON.stringify(
+              selectedColorIds.filter((id) => !activeColorIds.includes(id))
+            ),
+          });
+          console.log(formData.get("newlySelectedColors"));
+
           setOrAppendFormData(formData, { key: "type", value: "Clothing" });
 
           Object.entries(imagesByColor).forEach(([colorId, images]) => {
             images.forEach((image, index) => {
-              console.log(image);
               setOrAppendFormData(formData, {
                 key: `image_${colorId}_${index}`,
                 value: image,
@@ -294,6 +331,7 @@ export default function EditProductForm({
             key: "selectedColorIds",
             value: JSON.stringify(selectedColorIds),
           });
+
           setOrAppendFormData(formData, {
             key: "sizes",
             value: JSON.stringify(sizes),
@@ -308,10 +346,7 @@ export default function EditProductForm({
             });
           });
         }
-
-        const imageKeys = Array.from(formData.keys()).filter((key) => key.startsWith('image'));
-        imageKeys.forEach((key) => console.log(key, formData.get(key)));
-        //formAction(formData);
+        formAction(formData);
       }}
     >
       <div className="border border-gray-200 rounded-md max-w-[60%]">
@@ -592,7 +627,7 @@ export default function EditProductForm({
             <MultipleImageUpload
               type="Accessory"
               onImagesChange={handleAccessoryImagesChange}
-              initialImageUrls={getUniqueImageUrls(variants)}
+              initialImageUrls={images}
             />
             <div id="name-error" aria-live="polite" aria-atomic="true">
               {Array.isArray(state.variantErrors?.image) &&
@@ -667,12 +702,6 @@ export default function EditProductForm({
               </div>
             </div>
             <div className="flex flex-col space-y-2 p-3 w-full">
-              <input
-                type="text"
-                className="hidden"
-                name="sizeType"
-                defaultValue={selectedSizeType}
-              />
               <Label htmlFor="colors">Select Size Type</Label>
               <div className="flex items-center flex-wrap space-x-2.5">
                 {[
@@ -718,11 +747,9 @@ export default function EditProductForm({
                         type="Clothing"
                         colorId={color?.id}
                         onImagesChange={handleClothingImagesChange}
-                        initialImageUrls={getUniqueImageUrls(
-                          variants.filter(
-                            (variant) => variant.color?.id === color?.id
-                          )
-                        )}
+                        initialImageUrls={
+                          color?.id ? imagesByColor[color.id] : []
+                        }
                       />
                       <div
                         id="name-error"
@@ -810,11 +837,9 @@ export default function EditProductForm({
                         type="Clothing"
                         colorId={color?.id}
                         onImagesChange={handleClothingImagesChange}
-                        initialImageUrls={getUniqueImageUrls(
-                          variants.filter(
-                            (variant) => variant.color?.id === color?.id
-                          )
-                        )}
+                        initialImageUrls={
+                          color?.id ? imagesByColor[color.id] : []
+                        }
                       />
                       <div
                         id="name-error"
@@ -902,11 +927,9 @@ export default function EditProductForm({
                         type="Clothing"
                         colorId={color?.id}
                         onImagesChange={handleClothingImagesChange}
-                        initialImageUrls={getUniqueImageUrls(
-                          variants.filter(
-                            (variant) => variant.color?.id === color?.id
-                          )
-                        )}
+                        initialImageUrls={
+                          color?.id ? imagesByColor[color.id] : []
+                        }
                       />
                       <div
                         id="name-error"

@@ -4,6 +4,7 @@ import { deleteFileFromS3, uploadFileToS3 } from "@/lib/s3-manager";
 import IProductVariant from "@/models/product-variant";
 import ISize from "@/models/size";
 import { createClient } from "@/utils/supabase/server";
+import { size } from "lodash";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -194,7 +195,7 @@ export async function createProduct(
         .single();
 
       if (productError) {
-        return {
+        return <ProductState>{
           errors: {},
           variantErrors: {},
           message: productError.message,
@@ -212,7 +213,7 @@ export async function createProduct(
           .insert(productTags);
 
         if (tagsError) {
-          return {
+          return <ProductState>{
             errors: {},
             variantErrors: {},
             message: tagsError.message,
@@ -237,7 +238,7 @@ export async function createProduct(
             imageUrls.push(url);
           } catch (error) {
             console.error("Failed to upload image:", error);
-            return {
+            return <ProductState>{
               errors: {},
               variantErrors: {},
               message: "Failed to upload product images",
@@ -260,7 +261,7 @@ export async function createProduct(
             });
 
           if (variantError) {
-            return {
+            return <ProductState>{
               errors: {},
               variantErrors: {},
               message: variantError.message,
@@ -284,7 +285,7 @@ export async function createProduct(
               });
 
             if (variantError) {
-              return {
+              return <ProductState>{
                 errors: {},
                 variantErrors: {},
                 message: variantError.message,
@@ -295,7 +296,7 @@ export async function createProduct(
       }
     } catch (error) {
       console.error(error);
-      return {
+      return <ProductState>{
         message: "Error in database. Failed to create product.",
         errors: {},
         variantErrors: {},
@@ -310,11 +311,9 @@ export async function createProduct(
     });
 
     // Check for image presence
-    console.log(Array.from(formData.keys()));
     const imageKeys = Array.from(formData.keys()).filter((key) =>
       key.startsWith("image_")
     );
-    console.log(imageKeys);
 
     const hasImages = imageKeys.length > 0;
 
@@ -381,7 +380,7 @@ export async function createProduct(
         .single();
 
       if (productError) {
-        return {
+        return <ProductState>{
           errors: {},
           variantErrors: {},
           message: productError.message,
@@ -399,7 +398,7 @@ export async function createProduct(
           .insert(productTags);
 
         if (tagsError) {
-          return {
+          return <ProductState>{
             errors: {},
             variantErrors: {},
             message: tagsError.message,
@@ -419,7 +418,7 @@ export async function createProduct(
           imageUrls.push(url);
         } catch (error) {
           console.error("Failed to upload image:", error);
-          return {
+          return <ProductState>{
             errors: {},
             variantErrors: {},
             message: "Failed to upload product images",
@@ -439,7 +438,7 @@ export async function createProduct(
         });
 
       if (variantError) {
-        return {
+        return <ProductState>{
           errors: {},
           variantErrors: {},
           message: variantError.message,
@@ -447,7 +446,7 @@ export async function createProduct(
       }
     } catch (error) {
       console.error(error);
-      return {
+      return <ProductState>{
         message: "Error in database. Failed to create accessory product.",
         errors: {},
         variantErrors: {},
@@ -466,116 +465,177 @@ export async function createProduct(
 }
 
 export async function editProduct(prevState: ProductState, formData: FormData) {
-  const productValidation = ProductSchema.safeParse({
-    brand: formData.get("brand")?.toString() ?? "",
-    category: formData.get("category")?.toString() ?? "",
-    subcategory: formData.get("subcategory")?.toString() ?? "",
-    name: formData.get("name")?.toString() ?? "",
-    description: formData.get("description")?.toString() ?? "",
-    price: parseFloat(formData.get("price")?.toString() || "0"),
-    material: formData.get("material")?.toString() ?? "",
-    tags: JSON.parse(formData.get("tags") as string) as number[],
-  });
+  console.log("Starting editProduct action");
 
-  const type = formData.get("type") as "Clothing" | "Accessory";
-  const typeChanged = formData.get("typeChanged") === "true";
-  const productId = formData.get("productId") as string;
-  const removedImageUrls = JSON.parse(formData.get('removedImageUrls') as string) as string[];
+  try {
+    // Debug: Log all form data keys
+    console.log("FormData keys:", Array.from(formData.keys()));
 
-  if (type === "Clothing") {
-    // 2. Validate Variant Basic Fields (colors & size type)
-    const selectedColorIds = JSON.parse(
-      (formData.get("selectedColorIds") as string) || "[]"
-    ) as number[];
-    const sizeType = (formData.get("sizeType") as string) || "";
-    const sizes = JSON.parse(formData.get("sizes") as string) as ISize[];
-
-    const variantValidation = VariantSchema.safeParse({
-      colors: selectedColorIds,
-      sizeType: sizeType,
-    });
-
-    // 3. Early Validation for Images and Quantities
-    const variantErrors: ProductState["variantErrors"] = {
-      image: {},
-      quantity: {},
+    // 1. Parse and validate product data
+    const productData = {
+      brand: formData.get("brand")?.toString() ?? "",
+      category: formData.get("category")?.toString() ?? "",
+      subcategory: formData.get("subcategory")?.toString() ?? "",
+      name: formData.get("name")?.toString() ?? "",
+      description: formData.get("description")?.toString() ?? "",
+      price: parseFloat(formData.get("price")?.toString() || "0"),
+      material: formData.get("material")?.toString() ?? "",
+      tags: JSON.parse(formData.get("tags") as string) as number[],
     };
+    console.log("Product data to validate:", productData);
 
-    // Validate at least one image per color
-    selectedColorIds.forEach((colorId) => {
-      const hasImages = Array.from(formData.keys()).some((key) => {
-        key.startsWith(`image_${colorId}_`);
-      });
-      if (!hasImages) {
-        (variantErrors.image! as Record<string, string[]>)[colorId] = [
-          "At least one image is required",
-        ];
-      }
+    const productValidation = ProductSchema.safeParse(productData);
+
+    const type = formData.get("type") as "Clothing" | "Accessory";
+    const typeChanged = formData.get("typeChanged") === "true";
+    const productId = formData.get("productId") as string;
+    const removedImageUrls = JSON.parse(
+      formData.get("removedImageUrls") as string
+    ) as string[];
+    const unselectedColorIds = JSON.parse(
+      formData.get("unselectedColorIds") as string
+    ) as number[];
+    const newlySelectedColors = JSON.parse(
+      formData.get("newlySelectedColors") as string
+    ) as number[];
+    const sizeTypeChanged = formData.get("sizeTypeChanged") === "true";
+
+    console.log("Metadata:", {
+      type,
+      typeChanged,
+      productId,
+      removedImageUrls,
+      unselectedColorIds,
+      newlySelectedColors,
+      sizeTypeChanged,
     });
 
-    // Validate quantities based on size type
-    if (sizeType === "none") {
-      selectedColorIds.forEach((colorId) => {
-        const quantity = formData.get(`quantity_${colorId}`) as string;
-        if (!quantity || isNaN(parseInt(quantity)) || parseInt(quantity) < 0) {
-          (variantErrors.quantity! as Record<string, string[]>)[`${colorId}`] =
-            ["Quantity must be >= 0"];
-        }
+    if (type === "Clothing") {
+      console.log("Processing Clothing product type");
+
+      // 2. Validate Variant Basic Fields (colors & size type)
+      const selectedColorIds = JSON.parse(
+        (formData.get("selectedColorIds") as string) || "[]"
+      ) as number[];
+      const sizeType = (formData.get("sizeType") as string) || "";
+      const sizes = JSON.parse(formData.get("sizes") as string) as ISize[];
+
+      console.log("Variant data:", {
+        selectedColorIds,
+        sizeType,
+        sizes: sizes.map((s) => ({ id: s.id, name: s.name })),
       });
-    } else {
-      selectedColorIds.forEach((colorId) => {
-        const sizeKeys = Array.from(formData.keys()).filter((key) =>
-          key.startsWith(`quantity_${colorId}_`)
-        );
 
-        if (sizeKeys.length === 0) {
-          (variantErrors.quantity! as Record<string, string[]>)[`${colorId}`] =
-            ["Select at least one size"];
-        } else {
-          sizeKeys.forEach((key) => {
-            const quantity = formData.get(key) as string;
-            if (
-              !quantity ||
-              isNaN(parseInt(quantity)) ||
-              parseInt(quantity) < 0
-            ) {
-              (variantErrors.quantity! as Record<string, string[]>)[
-                key.replace(`quantity_`, "")
-              ] = ["Quantity must be >= 0"];
-            }
-          });
-        }
+      const variantValidation = VariantSchema.safeParse({
+        colors: selectedColorIds,
+        sizeType: sizeType,
       });
-    }
 
-    const hasImageErrors = variantErrors.image
-      ? Object.keys(variantErrors.image).length > 0
-      : false;
-
-    const hasQuantityErrors = variantErrors.quantity
-      ? Object.keys(variantErrors.quantity).length > 0
-      : false;
-
-    // 4. Check ALL validations before proceeding
-    const hasVariantErrors =
-      !variantValidation.success || hasImageErrors || hasQuantityErrors;
-
-    if (!productValidation.success || hasVariantErrors) {
-      return {
-        errors: productValidation.success
-          ? {}
-          : productValidation.error.flatten().fieldErrors,
-        variantErrors: {
-          ...(!variantValidation.success
-            ? variantValidation.error.flatten().fieldErrors
-            : {}),
-          ...variantErrors,
-        },
-        message: "Please fix all errors before submitting",
+      // 3. Early Validation for Images and Quantities
+      const variantErrors: ProductState["variantErrors"] = {
+        image: {},
+        quantity: {},
       };
-    }
 
-    try {
+      // Validate at least one image per color
+      selectedColorIds.forEach((colorId) => {
+        const hasImages = Array.from(formData.keys()).some((key) =>
+          key.startsWith(`image_${colorId}_`)
+        );
+        if (!hasImages) {
+          console.log(`Missing images for color ${colorId}`);
+          (variantErrors.image! as Record<string, string[]>)[colorId] = [
+            "At least one image is required",
+          ];
+        }
+      });
+
+      // Validate quantities based on size type
+      if (sizeType === "none") {
+        console.log('Validating quantities for sizeType "none"');
+        selectedColorIds.forEach((colorId) => {
+          const quantity = formData.get(`quantity_${colorId}`) as string;
+          if (
+            !quantity ||
+            isNaN(parseInt(quantity)) ||
+            parseInt(quantity) < 0
+          ) {
+            console.log(`Invalid quantity for color ${colorId}: ${quantity}`);
+            (variantErrors.quantity! as Record<string, string[]>)[
+              `${colorId}`
+            ] = ["Quantity must be >= 0"];
+          }
+        });
+      } else {
+        console.log(`Validating quantities for sizeType "${sizeType}"`);
+        selectedColorIds.forEach((colorId) => {
+          const sizeKeys = Array.from(formData.keys()).filter((key) =>
+            key.startsWith(`quantity_${colorId}_`)
+          );
+
+          if (sizeKeys.length === 0) {
+            console.log(`No sizes selected for color ${colorId}`);
+            (variantErrors.quantity! as Record<string, string[]>)[
+              `${colorId}`
+            ] = ["Select at least one size"];
+          } else {
+            sizeKeys.forEach((key) => {
+              const quantity = formData.get(key) as string;
+              if (
+                !quantity ||
+                isNaN(parseInt(quantity)) ||
+                parseInt(quantity) < 0
+              ) {
+                console.log(`Invalid quantity for ${key}: ${quantity}`);
+                (variantErrors.quantity! as Record<string, string[]>)[
+                  key.replace(`quantity_`, "")
+                ] = ["Quantity must be >= 0"];
+              }
+            });
+          }
+        });
+      }
+
+      const hasImageErrors = variantErrors.image
+        ? Object.keys(variantErrors.image).length > 0
+        : false;
+
+      const hasQuantityErrors = variantErrors.quantity
+        ? Object.keys(variantErrors.quantity).length > 0
+        : false;
+
+      console.log("Validation results:", {
+        productValidation: productValidation.success,
+        variantValidation: variantValidation.success,
+        hasImageErrors,
+        hasQuantityErrors,
+      });
+
+      // 4. Check ALL validations before proceeding
+      const hasVariantErrors =
+        !variantValidation.success || hasImageErrors || hasQuantityErrors;
+
+      if (!productValidation.success || hasVariantErrors) {
+        console.log("Validation failed, returning errors");
+        return {
+          errors: productValidation.success
+            ? {}
+            : productValidation.error.flatten().fieldErrors,
+          variantErrors: {
+            ...(!variantValidation.success
+              ? variantValidation.error.flatten().fieldErrors
+              : {}),
+            ...variantErrors,
+          },
+          message: "Please fix all errors before submitting",
+        };
+      }
+
+      // All validations passed, proceed with database operations
+      console.log(
+        "All validations passed, proceeding with database operations"
+      );
+
       const {
         name,
         description,
@@ -586,10 +646,13 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         material,
         tags,
       } = productValidation.data;
-      const { colors, sizeType } = variantValidation.data;
+      const { colors, sizeType: validatedSizeType } = variantValidation.data;
 
       const supabase = await createClient();
+      console.log("Supabase client created");
 
+      // Update product basic info
+      console.log("Updating product basic info");
       const { error: productError } = await supabase
         .from("product")
         .update({
@@ -605,70 +668,223 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         .eq("id", productId);
 
       if (productError) {
-        return {
+        console.error("Product update error:", productError);
+        return <ProductState>{
           errors: {},
           variantErrors: {},
-          message: productError.message,
+          message: `Product error: ${productError.message}`,
         };
       }
 
+      // Update product tags
       if (tags.length > 0) {
+        console.log("Updating product tags");
         const productTags = tags.map((tag) => ({
           product_id: parseInt(productId),
           tag_id: tag,
         }));
 
-        const { error: tagsError } = await supabase
+        // First delete existing tags
+        const { error: deleteTagsError } = await supabase
           .from("product_tag")
-          .update(productTags)
+          .delete()
           .eq("product_id", productId);
 
-        if (tagsError) {
-          return {
+        if (deleteTagsError) {
+          console.error("Error deleting old tags:", deleteTagsError);
+          return <ProductState>{
             errors: {},
             variantErrors: {},
-            message: tagsError.message,
+            message: `Tags delete error: ${deleteTagsError.message}`,
+          };
+        }
+
+        // Then insert new ones
+        const { error: tagsError } = await supabase
+          .from("product_tag")
+          .insert(productTags);
+
+        if (tagsError) {
+          console.error("Error inserting new tags:", tagsError);
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: `Tags insert error: ${tagsError.message}`,
           };
         }
       }
 
-      if (removedImageUrls.length > 0) {
-        await Promise.all(
-          removedImageUrls.map(async (imageUrl) => {
-            await deleteFileFromS3(imageUrl);
-          })
-        );
-      }
-
-      //Delete images and variants
-      if (typeChanged) {
+      // Handle size type change
+      if (sizeTypeChanged) {
+        console.log("Size type changed, cleaning up old variants");
         const { data: variants, error: variantsError } = await supabase
           .from("product_variant")
           .select("*")
           .eq("product_id", productId);
 
         if (variantsError) {
+          console.error(
+            "Error fetching variants for size type change:",
+            variantsError
+          );
           return <ProductState>{
-            message: variantsError.message,
+            errors: {},
+            variantErrors: {},
+            message: `variants fetch: ${variantsError.message}`,
           };
         }
 
         const productVariants = variants as IProductVariant[];
 
         if (productVariants.length > 0) {
-          const imageUrls: string[] = productVariants.flatMap(
-            (variant) => variant.image_urls || []
-          );
-          console.log(imageUrls);
+          const { error: deleteError } = await supabase
+            .from("product_variant")
+            .delete()
+            .in(
+              "id",
+              productVariants.map((variant) => variant.id)
+            );
 
-          // Delete images from S3
+          if (deleteError) {
+            console.error(
+              "Error deleting variants for size type change:",
+              deleteError
+            );
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: `delete variant: ${deleteError.message}`,
+            };
+          }
+        }
+      }
+
+      // Handle removed images
+      if (removedImageUrls.length > 0) {
+        console.log("Removing images from S3:", removedImageUrls);
+        try {
           await Promise.all(
-            imageUrls.map(async (imageUrl) => {
+            removedImageUrls.map(async (imageUrl) => {
               await deleteFileFromS3(imageUrl);
             })
           );
+        } catch (s3Error) {
+          console.error("Error deleting images from S3:", s3Error);
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: `Failed to delete some images from S3`,
+          };
+        }
+      }
 
-          // Delete product variants from Supabase
+      // Handle unselected colors
+      if (unselectedColorIds.length > 0) {
+        console.log("Processing unselected colors:", unselectedColorIds);
+        const { data: variants, error: variantsError } = await supabase
+          .from("product_variant")
+          .select("*")
+          .eq("product_id", productId)
+          .in("color_id", unselectedColorIds);
+
+        if (variantsError) {
+          console.error(
+            "Error fetching variants for unselected colors:",
+            variantsError
+          );
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: `fetch error1: ${variantsError.message}`,
+          };
+        }
+
+        const productVariants = variants as IProductVariant[];
+        const imageUrls = Array.from(
+          new Set(productVariants.flatMap((variant) => variant.image_urls))
+        );
+
+        console.log("Deleting images for unselected colors:", imageUrls);
+        try {
+          await Promise.all(
+            imageUrls.map(async (url) => await deleteFileFromS3(url))
+          );
+        } catch (s3Error) {
+          console.error(
+            "Error deleting images for unselected colors:",
+            s3Error
+          );
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: `Failed to delete images for unselected colors`,
+          };
+        }
+
+        const { error: deleteError } = await supabase
+          .from("product_variant")
+          .delete()
+          .in(
+            "id",
+            productVariants.map((variant) => variant.id)
+          );
+
+        if (deleteError) {
+          console.error(
+            "Error deleting variants for unselected colors:",
+            deleteError
+          );
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: `delete error: ${deleteError.message}`,
+          };
+        }
+      }
+
+      // Handle type change
+      if (typeChanged) {
+        console.log("Product type changed, cleaning up old variants");
+        const { data: variants, error: variantsError } = await supabase
+          .from("product_variant")
+          .select("*")
+          .eq("product_id", productId);
+
+        if (variantsError) {
+          console.error(
+            "Error fetching variants for type change:",
+            variantsError
+          );
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: `Variants error: ${variantsError.message}`,
+          };
+        }
+
+        const productVariants = variants as IProductVariant[];
+
+        if (productVariants.length > 0) {
+          const imageUrls = Array.from(
+            new Set(productVariants.flatMap((variant) => variant.image_urls))
+          );
+
+          console.log("Deleting images for type change: ", imageUrls);
+          try {
+            await Promise.all(
+              imageUrls.map(async (imageUrl) => {
+                await deleteFileFromS3(imageUrl);
+              })
+            );
+          } catch (s3Error) {
+            console.error("Error deleting images for type change:", s3Error);
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: `Failed to delete images for type change`,
+            };
+          }
+
           const variantIds = productVariants.map((variant) => variant.id);
           const { error: deleteError } = await supabase
             .from("product_variant")
@@ -676,23 +892,451 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
             .in("id", variantIds);
 
           if (deleteError) {
+            console.error(
+              "Error deleting variants for type change:",
+              deleteError
+            );
             return <ProductState>{
-              message: deleteError.message,
+              errors: {},
+              variantErrors: {},
+              message: `Delete error: ${deleteError.message}`,
             };
           }
         }
       }
 
-      //Saving variant data goes here...
+      // Process each color variant
+      console.log("Processing color variants:", colors);
       for (const colorId of colors) {
-        const imageKeys = Array.from(formData.keys()).filter((key) =>
-          key.startsWith(`image_${colorId}`)
-        );
+        console.log(`Processing color ${colorId}`);
+
+        // Get all image keys for this color, excluding removed images
+        const imageKeys = Array.from(formData.keys())
+          .filter((key) => key.startsWith(`image_${colorId}`))
+          .filter((key) => {
+            const value = formData.get(key);
+            if (typeof value === "string") {
+              return !removedImageUrls.includes(value);
+            }
+            return true; // keep Files
+          });
+
+        console.log(`Image keys for color ${colorId}:`, imageKeys);
 
         const imageUrls: string[] = [];
         for (const key of imageKeys) {
           const value = formData.get(key);
 
+          if (typeof value === "string") {
+            console.log(`Keeping existing image for ${key}: ${value}`);
+            imageUrls.push(value);
+          } else {
+            const imageFile = value;
+            try {
+              if (imageFile) {
+                console.log(`Uploading new image for ${key}`);
+                const url = await uploadFileToS3({
+                  file: imageFile,
+                  folder: "product_images",
+                });
+                console.log(`Uploaded image to ${url}`);
+                imageUrls.push(url);
+              }
+            } catch (error) {
+              console.error("Failed to upload image:", error);
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: "Failed to upload product images",
+              };
+            }
+          }
+        }
+
+        console.log(`Final image URLs for color ${colorId}:`, imageUrls);
+
+        if (validatedSizeType === "none") {
+          console.log(`Processing no-size variant for color ${colorId}`);
+          const quantityKey = `quantity_${colorId}`;
+          const quantity = parseInt(formData.get(quantityKey) as string);
+
+          if (newlySelectedColors.includes(colorId) || sizeTypeChanged) {
+            console.log(`Inserting new variant for color ${colorId}`);
+            const { error: variantError } = await supabase
+              .from("product_variant")
+              .insert({
+                product_id: productId,
+                color_id: colorId,
+                size_id: null,
+                quantity,
+                image_urls: imageUrls,
+              });
+
+            if (variantError) {
+              console.error("Error inserting new variant:", variantError);
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: `variant error: ${variantError.message}`,
+              };
+            }
+          } else {
+            console.log(`Updating existing variant for color ${colorId}`);
+            const { data: variant, error: fetchVariantError } = await supabase
+              .from("product_variant")
+              .select("id")
+              .eq("product_id", productId)
+              .eq("color_id", colorId)
+              .single();
+
+            if (fetchVariantError) {
+              console.error(
+                "Error fetching variant for update:",
+                fetchVariantError
+              );
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: `fetch error3: ${fetchVariantError.message}`,
+              };
+            }
+
+            if (!variant) {
+              console.error("Variant not found for update");
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: `Variant not found for color ${colorId}`,
+              };
+            }
+
+            const { error: variantError } = await supabase
+              .from("product_variant")
+              .update({
+                product_id: productId,
+                color_id: colorId,
+                size_id: null,
+                quantity,
+                image_urls: imageUrls,
+              })
+              .eq("id", variant.id);
+
+            if (variantError) {
+              console.error("Error updating variant:", variantError);
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: `Variant error: ${variantError.message}`,
+              };
+            }
+          }
+        } else {
+          console.log(`Processing sized variants for color ${colorId}`);
+          const sizesForType = sizes.filter(
+            (size) => size.type === validatedSizeType
+          );
+
+          for (const size of sizesForType) {
+            console.log(`Processing size ${size.id} for color ${colorId}`);
+            const quantityKey = `quantity_${colorId}_${size.id}`;
+            const quantity = parseInt(formData.get(quantityKey) as string);
+
+            if (newlySelectedColors.includes(colorId) || sizeTypeChanged) {
+              console.log(
+                `Inserting new variant for color ${colorId} and size ${size.id}`
+              );
+              const { error: variantError } = await supabase
+                .from("product_variant")
+                .insert({
+                  product_id: productId,
+                  color_id: colorId,
+                  size_id: size.id,
+                  quantity,
+                  image_urls: imageUrls,
+                });
+
+              if (variantError) {
+                console.error(
+                  "Error inserting new sized variant:",
+                  variantError
+                );
+                return <ProductState>{
+                  errors: {},
+                  variantErrors: {},
+                  message: `variant error: ${variantError.message}`,
+                };
+              }
+            } else {
+              console.log(
+                `Updating existing variant for color ${colorId} and size ${size.id}`
+              );
+              const { data: variant, error: fetchVariantError } = await supabase
+                .from("product_variant")
+                .select("id")
+                .eq("product_id", productId)
+                .eq("size_id", size.id)
+                .eq("color_id", colorId)
+                .single();
+
+              if (fetchVariantError) {
+                console.error(
+                  "Error fetching sized variant:",
+                  fetchVariantError
+                );
+                return <ProductState>{
+                  errors: {},
+                  variantErrors: {},
+                  message: `fetch error1: ${fetchVariantError.message}`,
+                };
+              }
+
+              if (!variant) {
+                console.error("Sized variant not found for update");
+                return <ProductState>{
+                  errors: {},
+                  variantErrors: {},
+                  message: `Variant not found for color ${colorId} and size ${size.id}`,
+                };
+              }
+
+              const { error: variantError } = await supabase
+                .from("product_variant")
+                .update({
+                  product_id: productId,
+                  color_id: colorId,
+                  size_id: size.id,
+                  quantity,
+                  image_urls: imageUrls,
+                })
+                .eq("id", variant.id);
+
+              if (variantError) {
+                console.error("Error updating sized variant:", variantError);
+                return <ProductState>{
+                  errors: {},
+                  variantErrors: {},
+                  message: `Variant error: ${variantError.message}`,
+                };
+              }
+            }
+          }
+        }
+      }
+    } else if (type === "Accessory") {
+      // Handle Accessory type
+      const quantity = parseInt(formData.get("quantity")?.toString() || "0");
+
+      const accessoryValidation = AccessorySchema.safeParse({
+        quantity,
+      });
+
+      // Check for image presence
+      const imageKeys = Array.from(formData.keys()).filter((key) =>
+        key.startsWith("image_")
+      );
+
+      const hasImages = imageKeys.length > 0;
+
+      const variantErrors: ProductState["variantErrors"] = {};
+
+      if (!hasImages) {
+        variantErrors.image = ["At least one image is required"];
+      }
+
+      if (
+        !accessoryValidation.success ||
+        !productValidation.success ||
+        !hasImages
+      ) {
+        console.log(
+          accessoryValidation.success,
+          productValidation.success,
+          hasImages
+        );
+        return {
+          errors: productValidation.success
+            ? {}
+            : productValidation.error.flatten().fieldErrors,
+          variantErrors: {
+            ...(!accessoryValidation.success
+              ? {
+                  quantity:
+                    accessoryValidation.error.flatten().fieldErrors.quantity,
+                }
+              : {}),
+            ...variantErrors,
+          },
+          message: "Please fix all errors before submitting",
+        };
+      }
+
+      try {
+        const {
+          name,
+          description,
+          brand,
+          category,
+          price,
+          subcategory,
+          material,
+          tags,
+        } = productValidation.data;
+
+        const supabase = await createClient();
+
+        const { error: productError } = await supabase
+          .from("product")
+          .update({
+            name,
+            description,
+            brand_id: parseInt(brand),
+            category_id: parseInt(category),
+            price,
+            subcategory_id: parseInt(subcategory),
+            material_id: parseInt(material),
+            type,
+          })
+          .eq("id", productId);
+
+        if (productError) {
+          return <ProductState>{
+            errors: {},
+            variantErrors: {},
+            message: productError.message,
+          };
+        }
+
+        if (tags.length > 0) {
+          console.log("Updating product tags");
+          const productTags = tags.map((tag) => ({
+            product_id: parseInt(productId),
+            tag_id: tag,
+          }));
+
+          // First delete existing tags
+          const { error: deleteTagsError } = await supabase
+            .from("product_tag")
+            .delete()
+            .eq("product_id", productId);
+
+          if (deleteTagsError) {
+            console.error("Error deleting old tags:", deleteTagsError);
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: `Tags delete error: ${deleteTagsError.message}`,
+            };
+          }
+
+          // Then insert new ones
+          const { error: tagsError } = await supabase
+            .from("product_tag")
+            .insert(productTags);
+
+          if (tagsError) {
+            console.error("Error inserting new tags:", tagsError);
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: `Tags insert error: ${tagsError.message}`,
+            };
+          }
+        }
+
+        // Handle removed images
+        if (removedImageUrls.length > 0) {
+          console.log("Removing images from S3:", removedImageUrls);
+          try {
+            await Promise.all(
+              removedImageUrls.map(async (imageUrl) => {
+                await deleteFileFromS3(imageUrl);
+              })
+            );
+          } catch (s3Error) {
+            console.error("Error deleting images from S3:", s3Error);
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: `Failed to delete some images from S3`,
+            };
+          }
+        }
+
+        if (typeChanged) {
+          console.log("Product type changed, cleaning up old variants");
+          const { data: variants, error: variantsError } = await supabase
+            .from("product_variant")
+            .select("*")
+            .eq("product_id", productId);
+
+          if (variantsError) {
+            console.error(
+              "Error fetching variants for type change:",
+              variantsError
+            );
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: `Variants error: ${variantsError.message}`,
+            };
+          }
+
+          const productVariants = variants as IProductVariant[];
+
+          if (productVariants.length > 0) {
+            const imageUrls = Array.from(
+              new Set(productVariants.flatMap((variant) => variant.image_urls))
+            );
+
+            console.log("Deleting images for type change: ", imageUrls);
+            try {
+              await Promise.all(
+                imageUrls.map(async (imageUrl) => {
+                  await deleteFileFromS3(imageUrl);
+                })
+              );
+            } catch (s3Error) {
+              console.error("Error deleting images for type change:", s3Error);
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: `Failed to delete images for type change`,
+              };
+            }
+
+            const variantIds = productVariants.map((variant) => variant.id);
+            const { error: deleteError } = await supabase
+              .from("product_variant")
+              .delete()
+              .in("id", variantIds);
+
+            if (deleteError) {
+              console.error(
+                "Error deleting variants for type change:",
+                deleteError
+              );
+              return <ProductState>{
+                errors: {},
+                variantErrors: {},
+                message: `Delete error: ${deleteError.message}`,
+              };
+            }
+          }
+        }
+
+        const newImageKeys = Array.from(formData.keys())
+          .filter((key) => key.startsWith(`image_`))
+          .filter((key) => {
+            const value = formData.get(key);
+            if (typeof value === "string") {
+              return !removedImageUrls.includes(value);
+            }
+            return true;
+          });
+        // Upload accessory images
+        const imageUrls: string[] = [];
+        for (const key of newImageKeys) {
+          const value = formData.get(key);
           if (typeof value === "string") {
             imageUrls.push(value);
           } else {
@@ -707,7 +1351,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
               }
             } catch (error) {
               console.error("Failed to upload image:", error);
-              return {
+              return <ProductState>{
                 errors: {},
                 variantErrors: {},
                 message: "Failed to upload product images",
@@ -716,84 +1360,85 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
           }
         }
 
-        if (sizeType === "none") {
-          const quantityKey = `quantity_${colorId}`;
-          const quantity = parseInt(formData.get(quantityKey) as string);
-          const { data: variantId, error: fetchVariantError } = await supabase
+        if (typeChanged) {
+          // Create accessory product variant (no color/size)
+          const { error: variantError } = await supabase
+            .from("product_variant")
+            .insert({
+              product_id: productId,
+              color_id: null,
+              size_id: null,
+              quantity,
+              image_urls: imageUrls,
+            });
+
+          if (variantError) {
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: variantError.message,
+            };
+          }
+        } else {
+          const { data: variant, error: fetchVariantError } = await supabase
             .from("product_variant")
             .select("id")
             .eq("product_id", productId)
             .single();
 
+          if (fetchVariantError) {
+            return <ProductState>{
+              errors: {},
+              variantErrors: {},
+              message: fetchVariantError.message,
+            };
+          }
+
           const { error: variantError } = await supabase
             .from("product_variant")
             .update({
               product_id: productId,
-              color_id: colorId,
+              color_id: null,
               size_id: null,
               quantity,
               image_urls: imageUrls,
             })
-            .eq("id", variantId);
+            .eq("id", variant.id);
 
-          if (variantError || fetchVariantError) {
-            return {
+          if (variantError) {
+            return <ProductState>{
               errors: {},
               variantErrors: {},
-              message: variantError?.message || fetchVariantError?.message,
+              message: variantError.message,
             };
           }
-        } else {
-          const sizesForType = sizes.filter((size) => size.type === sizeType);
-
-          for (const size of sizesForType) {
-            const quantityKey = `quantity_${colorId}_${size.id}`;
-            const quantity = parseInt(formData.get(quantityKey) as string);
-            const { data: variantId, error: fetchVariantError } = await supabase
-              .from("product_variant")
-              .select("id")
-              .eq("product_id", productId)
-              .eq("size_id", size.id)
-              .single();
-
-            const { error: variantError } = await supabase
-              .from("product_variant")
-              .update({
-                product_id: productId,
-                color_id: colorId,
-                size_id: size.id,
-                quantity,
-                image_urls: imageUrls,
-              })
-              .eq("id", variantId);
-
-            if (variantError || fetchVariantError) {
-              return {
-                errors: {},
-                variantErrors: {},
-                message: variantError?.message || fetchVariantError?.message,
-              };
-            }
-          }
         }
+      } catch (error) {
+        console.error(error);
+        return <ProductState>{
+          message: "Error in database. Failed to create accessory product.",
+          errors: {},
+          variantErrors: {},
+        };
       }
-    } catch (error) {
-      console.error(error);
-      return {
-        message: "Error in database. Failed to create product.",
-        errors: {},
-        variantErrors: {},
+    } else {
+      console.error("Invalid product type:", type);
+      return <ProductState>{
+        errors: {
+          type: ["No product type specified"],
+        },
       };
     }
-  } else if (type === "Accessory") {
-  } else {
+  } catch (error) {
+    console.error("Unexpected error in editProduct:", error);
     return <ProductState>{
-      errors: {
-        type: ["No product type specified"],
-      },
+      message: "An unexpected error occurred. Failed to edit product.",
+      errors: {},
+      variantErrors: {},
     };
   }
 
+  console.log("Product edit successful, redirecting");
   revalidatePath("/dashboard/products");
   redirect("/dashboard/products");
 }

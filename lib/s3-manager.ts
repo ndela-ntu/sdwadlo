@@ -44,6 +44,8 @@ export const uploadFileToS3 = async ({
 };
 
 export const deleteFileFromS3 = async (fileUrl: string): Promise<void> => {
+  console.log(fileUrl);
+  
   try {
     const url = new URL(fileUrl);
     const bucketName = url.hostname.split(".")[0];

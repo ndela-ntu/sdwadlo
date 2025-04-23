@@ -1,6 +1,7 @@
 import Header2 from "@/components/layout/header2";
 import EditProductForm from "@/components/layout/product/edit-product";
 import ShadowedBox from "@/components/layout/shadowed-box";
+import ITag from "@/models/tag";
 import { createClient } from "@/utils/supabase/server";
 import { ArrowLeft, Hammer } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +14,18 @@ export default async function (props: { params: Promise<{ id: string }> }) {
 
   const { data: product, error: productError } = await supabase
     .from("product")
-    .select(`*, brand(*), category(*), subcategory(*), material(*)`)
+    .select(
+      `
+    *,
+    brand(*),
+    category(*),
+    subcategory(*),
+    material(*),
+    product_tag!inner(
+      tag(*)
+    )
+  `
+    )
     .eq("id", parseInt(id))
     .single();
 
@@ -58,10 +70,11 @@ export default async function (props: { params: Promise<{ id: string }> }) {
     materialsError ||
     tagsError ||
     brandsError ||
-    variantsError
+    variantsError ||
+    productError
   ) {
     return (
-      <div>{`An error occurred: ${colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message || variantsError?.message}`}</div>
+      <div>{`An error occurred: ${productError?.message || colorsError?.message || categoriesError?.message || sizesError?.message || materialsError?.message || tagsError?.message || brandsError?.message || productError?.message || variantsError?.message}`}</div>
     );
   }
 

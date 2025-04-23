@@ -143,7 +143,7 @@ export default function ProductTable({
                 .filter((v) => v.product.id === product.id)
                 .map((variant) => (
                   <TableRow key={variant.id} className="bg-gray-50 w-full">
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={9}>
                       <div className="flex space-x-4 items-center">
                         <div className="flex flex-col gap-1 p-5 bg-chestNut rounded-md text-white">
                           <div>
@@ -160,19 +160,17 @@ export default function ProductTable({
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div className="flex gap-2 mt-1 flex-wrap">
+                        <div className="flex-1 overflow-x-auto">
+                          <div className="flex gap-2 mt-1">
                             {variant.image_urls.map((url, i) => (
                               <div
                                 key={i}
-                                className="relative aspect-square w-full"
+                                className="relative aspect-square w-24 h-24 flex-shrink-0"
                               >
                                 <Image
                                   src={url || "/placeholder-image.svg"}
                                   alt={`Variant picture`}
-                                  layout="intrinsic" // Ensure the image maintains its aspect ratio
-                                  width={92} // Set fixed width
-                                  height={92} // Set fixed height
+                                  fill
                                   style={{
                                     objectFit: "contain",
                                   }}

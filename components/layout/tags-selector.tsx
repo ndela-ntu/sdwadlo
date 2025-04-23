@@ -59,6 +59,10 @@ export function TagsSelector({
     setSearchValue("");
   };
 
+  React.useEffect(() => {
+    console.log(selectedTags);
+  }, [])
+
   const filteredTags = availableTags.filter((tag) =>
     tag.name.toLowerCase().includes(searchValue.toLowerCase())
   );
