@@ -328,11 +328,6 @@ export async function createProduct(
       !productValidation.success ||
       !hasImages
     ) {
-      console.log(
-        accessoryValidation.success,
-        productValidation.success,
-        hasImages
-      );
       return {
         errors: productValidation.success
           ? {}
@@ -465,12 +460,8 @@ export async function createProduct(
 }
 
 export async function editProduct(prevState: ProductState, formData: FormData) {
-  console.log("Starting editProduct action");
 
   try {
-    // Debug: Log all form data keys
-    console.log("FormData keys:", Array.from(formData.keys()));
-
     // 1. Parse and validate product data
     const productData = {
       brand: formData.get("brand")?.toString() ?? "",
@@ -482,8 +473,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
       material: formData.get("material")?.toString() ?? "",
       tags: JSON.parse(formData.get("tags") as string) as number[],
     };
-    console.log("Product data to validate:", productData);
-
+    
     const productValidation = ProductSchema.safeParse(productData);
 
     const type = formData.get("type") as "Clothing" | "Accessory";
@@ -500,31 +490,17 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
     ) as number[];
     const sizeTypeChanged = formData.get("sizeTypeChanged") === "true";
 
-    console.log("Metadata:", {
-      type,
-      typeChanged,
-      productId,
-      removedImageUrls,
-      unselectedColorIds,
-      newlySelectedColors,
-      sizeTypeChanged,
-    });
+   
 
     if (type === "Clothing") {
-      console.log("Processing Clothing product type");
-
+     
       // 2. Validate Variant Basic Fields (colors & size type)
       const selectedColorIds = JSON.parse(
         (formData.get("selectedColorIds") as string) || "[]"
       ) as number[];
       const sizeType = (formData.get("sizeType") as string) || "";
       const sizes = JSON.parse(formData.get("sizes") as string) as ISize[];
-
-      console.log("Variant data:", {
-        selectedColorIds,
-        sizeType,
-        sizes: sizes.map((s) => ({ id: s.id, name: s.name })),
-      });
+     
 
       const variantValidation = VariantSchema.safeParse({
         colors: selectedColorIds,
@@ -543,7 +519,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
           key.startsWith(`image_${colorId}_`)
         );
         if (!hasImages) {
-          console.log(`Missing images for color ${colorId}`);
           (variantErrors.image! as Record<string, string[]>)[colorId] = [
             "At least one image is required",
           ];
@@ -552,7 +527,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Validate quantities based on size type
       if (sizeType === "none") {
-        console.log('Validating quantities for sizeType "none"');
         selectedColorIds.forEach((colorId) => {
           const quantity = formData.get(`quantity_${colorId}`) as string;
           if (
@@ -560,21 +534,18 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
             isNaN(parseInt(quantity)) ||
             parseInt(quantity) < 0
           ) {
-            console.log(`Invalid quantity for color ${colorId}: ${quantity}`);
             (variantErrors.quantity! as Record<string, string[]>)[
               `${colorId}`
             ] = ["Quantity must be >= 0"];
           }
         });
       } else {
-        console.log(`Validating quantities for sizeType "${sizeType}"`);
         selectedColorIds.forEach((colorId) => {
           const sizeKeys = Array.from(formData.keys()).filter((key) =>
             key.startsWith(`quantity_${colorId}_`)
           );
 
           if (sizeKeys.length === 0) {
-            console.log(`No sizes selected for color ${colorId}`);
             (variantErrors.quantity! as Record<string, string[]>)[
               `${colorId}`
             ] = ["Select at least one size"];
@@ -586,7 +557,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
                 isNaN(parseInt(quantity)) ||
                 parseInt(quantity) < 0
               ) {
-                console.log(`Invalid quantity for ${key}: ${quantity}`);
                 (variantErrors.quantity! as Record<string, string[]>)[
                   key.replace(`quantity_`, "")
                 ] = ["Quantity must be >= 0"];
@@ -604,19 +574,11 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         ? Object.keys(variantErrors.quantity).length > 0
         : false;
 
-      console.log("Validation results:", {
-        productValidation: productValidation.success,
-        variantValidation: variantValidation.success,
-        hasImageErrors,
-        hasQuantityErrors,
-      });
-
       // 4. Check ALL validations before proceeding
       const hasVariantErrors =
         !variantValidation.success || hasImageErrors || hasQuantityErrors;
 
       if (!productValidation.success || hasVariantErrors) {
-        console.log("Validation failed, returning errors");
         return {
           errors: productValidation.success
             ? {}
@@ -631,11 +593,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         };
       }
 
-      // All validations passed, proceed with database operations
-      console.log(
-        "All validations passed, proceeding with database operations"
-      );
-
       const {
         name,
         description,
@@ -649,10 +606,8 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
       const { colors, sizeType: validatedSizeType } = variantValidation.data;
 
       const supabase = await createClient();
-      console.log("Supabase client created");
-
+    
       // Update product basic info
-      console.log("Updating product basic info");
       const { error: productError } = await supabase
         .from("product")
         .update({
@@ -678,7 +633,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Update product tags
       if (tags.length > 0) {
-        console.log("Updating product tags");
         const productTags = tags.map((tag) => ({
           product_id: parseInt(productId),
           tag_id: tag,
@@ -716,7 +670,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Handle size type change
       if (sizeTypeChanged) {
-        console.log("Size type changed, cleaning up old variants");
         const { data: variants, error: variantsError } = await supabase
           .from("product_variant")
           .select("*")
@@ -761,7 +714,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Handle removed images
       if (removedImageUrls.length > 0) {
-        console.log("Removing images from S3:", removedImageUrls);
         try {
           await Promise.all(
             removedImageUrls.map(async (imageUrl) => {
@@ -780,7 +732,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Handle unselected colors
       if (unselectedColorIds.length > 0) {
-        console.log("Processing unselected colors:", unselectedColorIds);
         const { data: variants, error: variantsError } = await supabase
           .from("product_variant")
           .select("*")
@@ -803,8 +754,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         const imageUrls = Array.from(
           new Set(productVariants.flatMap((variant) => variant.image_urls))
         );
-
-        console.log("Deleting images for unselected colors:", imageUrls);
         try {
           await Promise.all(
             imageUrls.map(async (url) => await deleteFileFromS3(url))
@@ -844,7 +793,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Handle type change
       if (typeChanged) {
-        console.log("Product type changed, cleaning up old variants");
         const { data: variants, error: variantsError } = await supabase
           .from("product_variant")
           .select("*")
@@ -869,7 +817,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
             new Set(productVariants.flatMap((variant) => variant.image_urls))
           );
 
-          console.log("Deleting images for type change: ", imageUrls);
           try {
             await Promise.all(
               imageUrls.map(async (imageUrl) => {
@@ -906,9 +853,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
       }
 
       // Process each color variant
-      console.log("Processing color variants:", colors);
       for (const colorId of colors) {
-        console.log(`Processing color ${colorId}`);
 
         // Get all image keys for this color, excluding removed images
         const imageKeys = Array.from(formData.keys())
@@ -921,25 +866,20 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
             return true; // keep Files
           });
 
-        console.log(`Image keys for color ${colorId}:`, imageKeys);
-
         const imageUrls: string[] = [];
         for (const key of imageKeys) {
           const value = formData.get(key);
 
           if (typeof value === "string") {
-            console.log(`Keeping existing image for ${key}: ${value}`);
             imageUrls.push(value);
           } else {
             const imageFile = value;
             try {
               if (imageFile) {
-                console.log(`Uploading new image for ${key}`);
                 const url = await uploadFileToS3({
                   file: imageFile,
                   folder: "product_images",
                 });
-                console.log(`Uploaded image to ${url}`);
                 imageUrls.push(url);
               }
             } catch (error) {
@@ -953,15 +893,11 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
           }
         }
 
-        console.log(`Final image URLs for color ${colorId}:`, imageUrls);
-
         if (validatedSizeType === "none") {
-          console.log(`Processing no-size variant for color ${colorId}`);
           const quantityKey = `quantity_${colorId}`;
           const quantity = parseInt(formData.get(quantityKey) as string);
 
           if (newlySelectedColors.includes(colorId) || sizeTypeChanged) {
-            console.log(`Inserting new variant for color ${colorId}`);
             const { error: variantError } = await supabase
               .from("product_variant")
               .insert({
@@ -981,7 +917,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
               };
             }
           } else {
-            console.log(`Updating existing variant for color ${colorId}`);
             const { data: variant, error: fetchVariantError } = await supabase
               .from("product_variant")
               .select("id")
@@ -1031,20 +966,15 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
             }
           }
         } else {
-          console.log(`Processing sized variants for color ${colorId}`);
           const sizesForType = sizes.filter(
             (size) => size.type === validatedSizeType
           );
 
           for (const size of sizesForType) {
-            console.log(`Processing size ${size.id} for color ${colorId}`);
             const quantityKey = `quantity_${colorId}_${size.id}`;
             const quantity = parseInt(formData.get(quantityKey) as string);
 
             if (newlySelectedColors.includes(colorId) || sizeTypeChanged) {
-              console.log(
-                `Inserting new variant for color ${colorId} and size ${size.id}`
-              );
               const { error: variantError } = await supabase
                 .from("product_variant")
                 .insert({
@@ -1067,9 +997,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
                 };
               }
             } else {
-              console.log(
-                `Updating existing variant for color ${colorId} and size ${size.id}`
-              );
               const { data: variant, error: fetchVariantError } = await supabase
                 .from("product_variant")
                 .select("id")
@@ -1148,11 +1075,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         !productValidation.success ||
         !hasImages
       ) {
-        console.log(
-          accessoryValidation.success,
-          productValidation.success,
-          hasImages
-        );
         return {
           errors: productValidation.success
             ? {}
@@ -1207,7 +1129,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         }
 
         if (tags.length > 0) {
-          console.log("Updating product tags");
           const productTags = tags.map((tag) => ({
             product_id: parseInt(productId),
             tag_id: tag,
@@ -1245,7 +1166,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
         // Handle removed images
         if (removedImageUrls.length > 0) {
-          console.log("Removing images from S3:", removedImageUrls);
           try {
             await Promise.all(
               removedImageUrls.map(async (imageUrl) => {
@@ -1263,7 +1183,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
         }
 
         if (typeChanged) {
-          console.log("Product type changed, cleaning up old variants");
           const { data: variants, error: variantsError } = await supabase
             .from("product_variant")
             .select("*")
@@ -1288,7 +1207,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
               new Set(productVariants.flatMap((variant) => variant.image_urls))
             );
 
-            console.log("Deleting images for type change: ", imageUrls);
             try {
               await Promise.all(
                 imageUrls.map(async (imageUrl) => {
@@ -1438,7 +1356,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
     };
   }
 
-  console.log("Product edit successful, redirecting");
   revalidatePath("/dashboard/products");
   redirect("/dashboard/products");
 }
