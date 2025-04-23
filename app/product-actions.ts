@@ -33,7 +33,7 @@ const AccessorySchema = z.object({
   quantity: z.number().min(0, { message: "Quantity must be >= 0" }),
 });
 
-export type ProductState = {
+export interface ProductState {
   errors?: {
     type?: string[];
     brand?: string[];
@@ -46,13 +46,14 @@ export type ProductState = {
     tags?: string[];
   };
   variantErrors?: {
+    type?: string[];
     colors?: string[];
     sizeType?: string[];
     image?: Record<string, string[]> | string[];
     quantity?: Record<string, string[]> | string[];
   };
   message?: string | null;
-};
+}
 
 export async function createProduct(
   prevState: ProductState,
@@ -449,7 +450,7 @@ export async function createProduct(
     }
   } else {
     return <ProductState>{
-      errors: {
+      variantErrors: {
         type: ["No product type specified"],
       },
     };
@@ -460,7 +461,6 @@ export async function createProduct(
 }
 
 export async function editProduct(prevState: ProductState, formData: FormData) {
-
   try {
     // 1. Parse and validate product data
     const productData = {
@@ -473,7 +473,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
       material: formData.get("material")?.toString() ?? "",
       tags: JSON.parse(formData.get("tags") as string) as number[],
     };
-    
+
     const productValidation = ProductSchema.safeParse(productData);
 
     const type = formData.get("type") as "Clothing" | "Accessory";
@@ -490,17 +490,13 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
     ) as number[];
     const sizeTypeChanged = formData.get("sizeTypeChanged") === "true";
 
-   
-
     if (type === "Clothing") {
-     
       // 2. Validate Variant Basic Fields (colors & size type)
       const selectedColorIds = JSON.parse(
         (formData.get("selectedColorIds") as string) || "[]"
       ) as number[];
       const sizeType = (formData.get("sizeType") as string) || "";
       const sizes = JSON.parse(formData.get("sizes") as string) as ISize[];
-     
 
       const variantValidation = VariantSchema.safeParse({
         colors: selectedColorIds,
@@ -606,7 +602,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
       const { colors, sizeType: validatedSizeType } = variantValidation.data;
 
       const supabase = await createClient();
-    
+
       // Update product basic info
       const { error: productError } = await supabase
         .from("product")
@@ -854,7 +850,6 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
       // Process each color variant
       for (const colorId of colors) {
-
         // Get all image keys for this color, excluding removed images
         const imageKeys = Array.from(formData.keys())
           .filter((key) => key.startsWith(`image_${colorId}`))
@@ -1342,7 +1337,7 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
     } else {
       console.error("Invalid product type:", type);
       return <ProductState>{
-        errors: {
+        variantErrors: {
           type: ["No product type specified"],
         },
       };

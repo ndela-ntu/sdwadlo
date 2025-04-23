@@ -373,8 +373,8 @@ export default function EditProductForm({
             </SelectContent>
           </Select>
           <div id="name-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.type &&
-              state.errors.type.map((error: string, i) => (
+            {state.variantErrors?.type &&
+              state.variantErrors.type.map((error: string, i) => (
                 <p key={i} className="text-sm text-red-500">
                   {error}
                 </p>
