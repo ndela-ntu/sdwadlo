@@ -3,6 +3,7 @@
 import { deleteFileFromS3, uploadFileToS3 } from "@/lib/s3-manager";
 import IProductVariant from "@/models/product-variant";
 import ISize from "@/models/size";
+import ITag from "@/models/tag";
 import { createClient } from "@/utils/supabase/server";
 import { size } from "lodash";
 import { revalidatePath } from "next/cache";
@@ -1353,4 +1354,79 @@ export async function editProduct(prevState: ProductState, formData: FormData) {
 
   revalidatePath("/dashboard/products");
   redirect("/dashboard/products");
+}
+
+export async function deleteProduct(id: number) {
+  try {
+    const supabase = await createClient();
+
+    const { data: variantsData, error: variantsError } = await supabase
+      .from("product_variant")
+      .select("*")
+      .eq("product_id", id);
+
+    if (variantsError) {
+      throw new Error(`Failed to fetch variants: ${variantsError.message}`);
+    }
+
+    const productVariants = variantsData as IProductVariant[];
+    const imageUrls = Array.from(
+      new Set(productVariants.flatMap((variant) => variant.image_urls))
+    );
+    await Promise.all(
+      imageUrls.map(async (url) => await deleteFileFromS3(url))
+    );
+
+    const { error: deleteVariantError } = await supabase
+      .from("product_variant")
+      .delete()
+      .in(
+        "id",
+        productVariants.map((variant) => variant.id)
+      );
+
+    if (deleteVariantError) {
+      throw new Error(
+        `Failed to delete variants: ${deleteVariantError.message}`
+      );
+    }
+
+    const { data: tagsData, error: fetchTagsError } = await supabase
+      .from("product_tag")
+      .select("*")
+      .eq("product_id", id);
+
+    if (fetchTagsError) {
+      throw new Error(`Failed to fetch tags: ${fetchTagsError.message}`);
+    }
+
+    const tags = tagsData as ITag[];
+
+    const { error: deleteTagsError } = await supabase
+      .from("product_tag")
+      .delete()
+      .in(
+        "id",
+        tags.map((tag) => tag.id)
+      );
+
+    if (deleteTagsError) {
+      throw new Error(`Failed to delete tags: ${deleteTagsError.message}`);
+    }
+
+    const { error: deleteProductError } = await supabase
+      .from("product")
+      .delete()
+      .eq("id", id);
+
+    if (deleteProductError) {
+      throw new Error(
+        `Failed to delete product: $${deleteProductError.message}`
+      );
+    }
+  } catch (error) {
+    console.error("Error in deleteProduct:", error);
+  }
+
+  revalidatePath("/dashboard/brands");
 }
