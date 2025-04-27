@@ -12,6 +12,7 @@ import {
   Hammer,
   HandCoins,
   Home,
+  HomeIcon,
   House,
   LandPlot,
   Logs,
@@ -136,6 +137,19 @@ export default function NavLinks() {
 
   return (
     <div className="w-full flex md:flex-col justify-between items-center">
+      <Link
+        className={`w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
+          isActive("/dashboard")
+            ? "text-white bg-eerieBlack"
+            : "text-eerieBlack bg-white border border-eerieBlack"
+        } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
+        href="/dashboard"
+      >
+        <span>
+          <HomeIcon />
+        </span>
+        <p className="hidden md:block">Home</p>
+      </Link>
       {sortedLinks.map((link) => {
         const shouldHighlightParent = isChildActive(link.href, link.subLinks);
 

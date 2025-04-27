@@ -18,7 +18,7 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  return redirect("/dashboard/products");
+  return redirect("/dashboard");
 };
 
 export const signOutAction = async () => {
