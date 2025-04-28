@@ -210,11 +210,11 @@ export default function MediaManager({
             >
               <span className="font-medium text-gray-800">{entity.name}</span>
               <div className="flex flex-col space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Media (video/image)
+                <label className="text-sm font-semibold text-gray-800">
+                  Media <span className="text-gray-500">(video/image)</span>
                 </label>
                 <div className="flex items-center space-x-4">
-                  <Input
+                  <input
                     type="file"
                     accept="image/*,video/*"
                     onChange={(e) =>
@@ -223,8 +223,9 @@ export default function MediaManager({
                     ref={(el) => {
                       inputRefs.current[entityType][entity.id] = el;
                     }}
-                    className="w-full max-w-xs"
+                    className="w-full max-w-xs rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-silver file:py-2 file:px-4 file:text-sm file:font-semibold file:text-black hover:file:bg-chestNut"
                   />
+
                   {(hasUploadedMedia || initialMediaType) && (
                     <Button
                       variant="ghost"
