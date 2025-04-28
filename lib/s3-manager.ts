@@ -27,6 +27,7 @@ export const uploadFileToS3 = async ({
     const fileExtension = file.name.split(".").pop();
     const key = `${folder ? `${folder}/` : ""}${uuidv4()}.${fileExtension}`;
 
+    console.log(process.env.S3_BUCKET_NAME);
     const uploadParams = {
       Bucket: process.env.S3_BUCKET_NAME,
       Key: key,

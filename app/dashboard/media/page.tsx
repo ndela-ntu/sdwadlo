@@ -1,5 +1,5 @@
 import Header1 from "@/components/layout/header1";
-import Media from "@/components/layout/media/media";
+import MediaManager from "@/components/layout/media-manager/media";
 import { createClient } from "@/utils/supabase/server";
 
 export default async function Page() {
@@ -25,7 +25,7 @@ export default async function Page() {
   return (
     <div className="flex flex-col space-y-2">
       <Header1>User Interface</Header1>
-      <Media categories={categories} tags={tags} brands={brands} />
+      <MediaManager categories={categories} tags={tags} brands={brands} />
     </div>
   );
 }
