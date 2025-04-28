@@ -16,6 +16,7 @@ import {
   House,
   LandPlot,
   Logs,
+  MonitorSmartphone,
   PiggyBank,
   Settings,
   Ship,
@@ -95,6 +96,11 @@ const links: {
     href: "/dashboard/analytics",
     icon: <ChartArea />,
   },
+  {
+    name: 'Media Manager',
+    href: '/dashboard/media',
+    icon: <MonitorSmartphone />
+  }
 ];
 
 export default function NavLinks() {

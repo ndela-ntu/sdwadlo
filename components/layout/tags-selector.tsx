@@ -17,11 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-
-export interface ITag {
-  id: number;
-  name: string;
-}
+import ITag from "@/models/tag";
 
 interface TagsSelectorProps {
   availableTags: ITag[];
