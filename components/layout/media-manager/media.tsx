@@ -223,7 +223,7 @@ export default function MediaManager({
                     ref={(el) => {
                       inputRefs.current[entityType][entity.id] = el;
                     }}
-                    className="w-full max-w-xs rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-silver file:py-2 file:px-4 file:text-sm file:font-semibold file:text-black hover:file:bg-chestNut"
+                    className="w-full max-w-xs rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-silver file:py-2 file:px-4 file:text-sm file:font-semibold file:text-black hover:file:bg-chestNut hover:file:text-white"
                   />
 
                   {(hasUploadedMedia || initialMediaType) && (
