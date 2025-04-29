@@ -20,7 +20,7 @@ export default async function Page() {
   return (
     <div className="flex flex-col">
       <div className="flex space-x-2.5 items-center">
-        <Link href="/dashboard/stocks/settings">
+        <Link href="/dashboard/stocks">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <Header1>Stock Settings</Header1>

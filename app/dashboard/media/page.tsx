@@ -24,7 +24,7 @@ export default async function Page() {
 
   return (
     <div className="flex flex-col space-y-2">
-      <Header1>User Interface</Header1>
+      <Header1>Media Manager</Header1>
       <MediaManager categories={categories} tags={tags} brands={brands} />
     </div>
   );

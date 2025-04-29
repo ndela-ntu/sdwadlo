@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, ChangeEvent } from "react";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Header2 from "../header2";
@@ -9,7 +9,8 @@ import ShadowedBox from "../shadowed-box";
 import { deleteFileFromS3, uploadFileToS3 } from "@/lib/s3-manager";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@/utils/supabase/client";
-import { updateEntityMedia } from "@/app/media-actions";
+import { removeEntityMedia, updateEntityMedia } from "@/app/media-actions";
+import { useMissingMedia } from "@/context/missing-media-context";
 
 interface MediaEntity {
   id: number;
@@ -27,6 +28,8 @@ export default function MediaManager({
   categories: MediaEntity[];
 }) {
   const { toast } = useToast();
+  const { missingMedia, addMissingMedia, removeMissingMedia } =
+    useMissingMedia();
   // State for media uploads
   const [mediaStates, setMediaStates] = useState<{
     tags: Record<
@@ -65,6 +68,12 @@ export default function MediaManager({
     brands: Record<number, HTMLInputElement | null>;
     categories: Record<number, HTMLInputElement | null>;
   }>({ tags: {}, brands: {}, categories: {} });
+
+  const isMissingMedia = (id: number, type: "tag" | "brand" | "category") => {
+    return missingMedia.some(
+      (item) => item.mediaId === id && item.type === type
+    );
+  };
 
   const getMediaType = (url: string | null): "image" | "video" | null => {
     if (!url) return null;
@@ -137,6 +146,40 @@ export default function MediaManager({
     }
   };
 
+  const handleDeleteMedia = async (
+    entityId: number,
+    entityType: "tags" | "brands" | "categories",
+    currentMediaUrl: string
+  ) => {
+    try {
+      const typeMap = {
+        tags: "tag" as const,
+        brands: "brand" as const,
+        categories: "category" as const,
+      };
+      const singularType = typeMap[entityType];
+
+      await removeEntityMedia(singularType, entityId, currentMediaUrl);
+
+      // Add to missing media list
+      addMissingMedia({
+        type: singularType,
+        mediaId: entityId,
+      });
+
+      toast({
+        title: "Success!",
+        description: "Media deleted successfully!",
+      });
+    } catch (error) {
+      toast({
+        title: "Error occurred",
+        description: "Failed to delete media",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
@@ -145,6 +188,10 @@ export default function MediaManager({
         const tag = tags.find((t) => t.id === Number(id));
         if (tag && media.file) {
           await updateEntityMedia("tag", tag.id, tag.media_url, media.file);
+          // Remove from missing media if it was there
+          if (isMissingMedia(tag.id, "tag")) {
+            removeMissingMedia(tag.id, "tag");
+          }
         }
       }
 
@@ -158,6 +205,10 @@ export default function MediaManager({
             brand.media_url,
             media.file
           );
+          // Remove from missing media if it was there
+          if (isMissingMedia(brand.id, "brand")) {
+            removeMissingMedia(brand.id, "brand");
+          }
         }
       }
 
@@ -165,12 +216,17 @@ export default function MediaManager({
       for (const [id, media] of Object.entries(mediaStates.categories)) {
         const category = categories.find((c) => c.id === Number(id));
         if (category && media.file) {
+          console.log(category);
           await updateEntityMedia(
             "category",
             category.id,
             category.media_url,
             media.file
           );
+          // Remove from missing media if it was there
+          if (isMissingMedia(category.id, "category")) {
+            removeMissingMedia(category.id, "category");
+          }
         }
       }
 
@@ -189,94 +245,142 @@ export default function MediaManager({
       setIsSubmitting(false);
     }
   };
-
   const renderMediaSection = (
     entities: MediaEntity[],
     entityType: "tags" | "brands" | "categories",
     title: string
-  ) => (
-    <div className="flex flex-col space-y-4 border border-gray-200 rounded-lg p-6 bg-white my-6">
-      <Header2>{title}</Header2>
-      <div className="space-y-6">
-        {entities.map((entity) => {
-          const initialMediaType = getMediaType(entity.media_url);
-          const hasUploadedMedia =
-            !!mediaStates[entityType][entity.id]?.preview;
+  ) => {
+    const typeMap = {
+      tags: "tag" as const,
+      brands: "brand" as const,
+      categories: "category" as const,
+    };
+    const singularType = typeMap[entityType];
 
-          return (
-            <div
-              key={entity.id}
-              className="flex flex-col space-y-2 p-3 rounded-lg bg-gray-50"
-            >
-              <span className="font-medium text-gray-800">{entity.name}</span>
-              <div className="flex flex-col space-y-2">
-                <label className="text-sm font-semibold text-gray-800">
-                  Media <span className="text-gray-500">(video/image)</span>
-                </label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={(e) =>
-                      handleMediaChange(e, entity.id, entityType)
-                    }
-                    ref={(el) => {
-                      inputRefs.current[entityType][entity.id] = el;
-                    }}
-                    className="w-full max-w-xs rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-silver file:py-2 file:px-4 file:text-sm file:font-semibold file:text-black hover:file:bg-chestNut hover:file:text-white"
-                  />
+    return (
+      <div className="flex flex-col space-y-4 border border-gray-200 rounded-lg p-6 bg-white my-6">
+        <Header2>{title}</Header2>
+        <div className="space-y-6">
+          {entities.map((entity) => {
+            const initialMediaType = getMediaType(entity.media_url);
+            const hasUploadedMedia =
+              !!mediaStates[entityType][entity.id]?.preview;
+            const isMissing = isMissingMedia(entity.id, singularType);
+            const showDelete = initialMediaType && !hasUploadedMedia;
+            const showClear = hasUploadedMedia;
 
-                  {(hasUploadedMedia || initialMediaType) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeMedia(entity.id, entityType)}
-                      className="text-red-500 hover:text-red-600"
-                    >
-                      <X size={16} />
-                    </Button>
+            return (
+              <div
+                key={entity.id}
+                className={`flex flex-col space-y-2 p-3 rounded-lg ${
+                  isMissing ? "bg-red-50 border border-red-200" : "bg-gray-50"
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-gray-800">
+                    {entity.name}
+                  </span>
+                  {isMissing && (
+                    <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                      Missing Media
+                    </span>
                   )}
                 </div>
-                {hasUploadedMedia ? (
-                  <div className="mt-2 rounded-md overflow-hidden border border-gray-200 max-w-xs">
-                    {mediaStates[entityType][entity.id].type === "image" ? (
-                      <img
-                        src={mediaStates[entityType][entity.id].preview!}
-                        alt={`${entity.name} preview`}
-                        className="w-full h-auto object-cover"
-                      />
-                    ) : (
-                      <video
-                        src={mediaStates[entityType][entity.id].preview!}
-                        controls
-                        className="w-full h-auto"
-                      />
+
+                <div className="flex flex-col space-y-2">
+                  <label className="text-sm font-semibold text-gray-800">
+                    Media <span className="text-gray-500">(video/image)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={(e) =>
+                        handleMediaChange(e, entity.id, entityType)
+                      }
+                      ref={(el) => {
+                        inputRefs.current[entityType][entity.id] = el;
+                      }}
+                      className="flex-1 rounded-lg border border-gray-300 bg-white p-2 text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-silver file:py-2 file:px-4 file:text-sm file:font-semibold file:text-black hover:file:bg-chestNut hover:file:text-white"
+                    />
+
+                    {/* Unified action button */}
+                    {showDelete && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() =>
+                          handleDeleteMedia(
+                            entity.id,
+                            entityType,
+                            entity.media_url!
+                          )
+                        }
+                        className="h-10 px-3"
+                      >
+                        Delete
+                      </Button>
+                    )}
+                    {showClear && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeMedia(entity.id, entityType)}
+                        className="h-10 px-3"
+                      >
+                        Clear
+                      </Button>
                     )}
                   </div>
-                ) : initialMediaType ? (
-                  <div className="mt-2 rounded-md overflow-hidden border border-gray-200 max-w-xs">
-                    {initialMediaType === "image" ? (
-                      <img
-                        src={entity.media_url!}
-                        alt={`${entity.name} preview`}
-                        className="w-full h-auto object-cover"
-                      />
-                    ) : (
-                      <video
-                        src={entity.media_url!}
-                        controls
-                        className="w-full h-auto"
-                      />
+
+                  {/* Media preview area */}
+                  <div className="mt-2">
+                    {showDelete && (
+                      <div className="flex items-center gap-2">
+                        <div className="rounded-md overflow-hidden border border-gray-200 max-w-xs">
+                          {initialMediaType === "image" ? (
+                            <img
+                              src={entity.media_url!}
+                              alt={`${entity.name}`}
+                              className="w-full h-auto"
+                            />
+                          ) : (
+                            <video
+                              src={entity.media_url!}
+                              controls
+                              className="w-full h-auto"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {showClear && (
+                      <div className="rounded-md overflow-hidden border border-gray-200 max-w-xs">
+                        {mediaStates[entityType][entity.id].type === "image" ? (
+                          <img
+                            src={mediaStates[entityType][entity.id].preview!}
+                            alt={`${entity.name} preview`}
+                            className="w-full h-auto object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={mediaStates[entityType][entity.id].preview!}
+                            controls
+                            className="w-full h-auto"
+                          />
+                        )}
+                      </div>
                     )}
                   </div>
-                ) : null}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <ShadowedBox>
@@ -289,7 +393,11 @@ export default function MediaManager({
         onClick={handleSubmit}
         disabled={isSubmitting}
       >
-        {isSubmitting ? "Saving..." : "Save"}
+        {isSubmitting ? (
+          <Loader2 className="animate-spin text-white" />
+        ) : (
+          "Save"
+        )}
       </Button>
     </ShadowedBox>
   );

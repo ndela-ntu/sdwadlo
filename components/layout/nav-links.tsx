@@ -28,6 +28,8 @@ import { ReactNode, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useLowStock } from "@/context/low-stock-contex";
 import IStockSettings from "@/models/stock-settings";
+import IProductVariant from "@/models/product-variant";
+import { useMissingMedia } from "@/context/missing-media-context";
 
 const links: {
   name: string;
@@ -97,20 +99,16 @@ const links: {
     icon: <ChartArea />,
   },
   {
-    name: 'Media Manager',
-    href: '/dashboard/media',
-    icon: <MonitorSmartphone />
-  }
+    name: "Media Manager",
+    href: "/dashboard/media",
+    icon: <MonitorSmartphone />,
+  },
 ];
 
 export default function NavLinks() {
-  const supabase = createClient();
   const pathname = usePathname();
-  const [error, setError] = useState<string>();
-  const { lowStockVariants, addLowStockVariant, removeLowStockVariant } =
-    useLowStock();
-
-  // ... (useEffect and data fetching remains the same)
+  const { lowStockVariants } = useLowStock();
+  const { missingMedia } = useMissingMedia();
 
   const isActive = (href: string): boolean => {
     return pathname === href;
@@ -170,9 +168,57 @@ export default function NavLinks() {
                 } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
                 href={link.href}
               >
-                {(error || lowStockVariants.length > 0) && (
+                {lowStockVariants.length > 0 && (
                   <span className="absolute top-0 right-0 -mt-2 -mr-2 rounded-full bg-red-500 text-white text-sm px-2 py-0.5">
-                    {error ? "E" : lowStockVariants.length}
+                    {lowStockVariants.length}
+                  </span>
+                )}
+
+                <span>{link.icon}</span>
+                <p className="hidden md:block">{link.name}</p>
+              </Link>
+              {link.subLinks &&
+                link.subLinks.map((sLink) => (
+                  <div
+                    key={sLink.name}
+                    className="flex w-full justify-between pl-3 items-center"
+                  >
+                    <span>
+                      <CornerDownRight />
+                    </span>{" "}
+                    <div
+                      className={`px-3 max-w-fit flex space-x-1 items-center rounded-md font-medium ${
+                        isActive(sLink.href)
+                          ? "text-white bg-eerieBlack"
+                          : "text-eerieBlack bg-white border border-eerieBlack"
+                      }`}
+                    >
+                      <Link
+                        className="text-sm flex h-[36px] grow items-center gap-2 "
+                        href={sLink.href}
+                      >
+                        <span>{sLink.icon}</span>
+                        <p>{sLink.name}</p>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          );
+        } else if (link.name === "Media Manager") {
+          return (
+            <div key={link.name} className="flex flex-col w-full">
+              <Link
+                className={`relative w-full flex h-[48px] grow items-center justify-center gap-2 rounded-md ${
+                  isActive(link.href)
+                    ? "text-white bg-eerieBlack"
+                    : "text-eerieBlack bg-white border border-eerieBlack"
+                } p-3 font-medium md:flex-none md:justify-start md:p-2 md:px-3`}
+                href={link.href}
+              >
+                {(missingMedia.length > 0) && (
+                  <span className="absolute top-0 right-0 -mt-2 -mr-2 rounded-full bg-red-500 text-white text-sm px-2 py-0.5">
+                    {missingMedia.length}
                   </span>
                 )}
 

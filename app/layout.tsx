@@ -2,7 +2,8 @@ import ErrorBoundary from "@/components/layout/error-boundary";
 import "./globals.css";
 import { Montserrat } from "next/font/google";
 import { LowStockProvider } from "@/context/low-stock-contex";
-import { Toaster } from "@/components/ui/toaster"
+import { Toaster } from "@/components/ui/toaster";
+import { MissingMediaProvider } from "@/context/missing-media-context";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -32,10 +33,12 @@ export default function RootLayout({
     >
       <body className="bg-white text-black">
         <ErrorBoundary>
-          <LowStockProvider>
-            <main className="h-full">{children}</main>
-            <Toaster />
-          </LowStockProvider>
+          <MissingMediaProvider>
+            <LowStockProvider>
+              <main className="h-full">{children}</main>
+              <Toaster />
+            </LowStockProvider>
+          </MissingMediaProvider>
         </ErrorBoundary>
       </body>
     </html>

@@ -27,7 +27,7 @@ export async function updateEntityMedia(
     if (!uploadUrl) {
       throw new Error("Failed to upload file to S3");
     }
-
+    console.log(entityType, uploadUrl, id);
     // Update Supabase
     const { error } = await supabase
       .from(entityType)
@@ -46,4 +46,32 @@ export async function updateEntityMedia(
   }
 
   revalidatePath("/dashboard/media");
+}
+
+// Add this new function to s3-actions.ts
+export async function removeEntityMedia(
+  entityType: "tag" | "brand" | "category",
+  id: number,
+  currentMediaUrl: string
+) {
+  try {
+    const supabase = await createClient();
+
+    // Delete from S3
+    await deleteMedia(currentMediaUrl);
+
+    // Update Supabase to remove media_url
+    const { error } = await supabase
+      .from(entityType)
+      .update({ media_url: null })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    revalidatePath("/dashboard/media");
+    return { success: true };
+  } catch (error) {
+    console.error(`Error removing ${entityType} media:`, error);
+    throw error;
+  }
 }
