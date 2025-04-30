@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { TrendingUpDownIcon } from "lucide-react";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
+import { number, z } from "zod";
 
 const BrandSchema = z.object({
   id: z.string(),
@@ -26,10 +26,12 @@ export type BrandState = {
     logo?: string[];
   };
   message?: string | null;
+  success?: boolean;
+  id?: number | null;
 };
 
 const CreateBrandSchema = BrandSchema.omit({ id: true });
-export async function createBrand(prevState: BrandState, formData: FormData) {
+export async function createBrand(prevState: BrandState, formData: FormData): Promise<BrandState> { 
   const validatedFields = CreateBrandSchema.safeParse({
     name: formData.get("name"),
     logo: formData.get("logo"),
@@ -39,6 +41,7 @@ export async function createBrand(prevState: BrandState, formData: FormData) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Missing fields. Failed to create brand.",
+      success: false
     };
   }
 
@@ -52,18 +55,29 @@ export async function createBrand(prevState: BrandState, formData: FormData) {
       folder: "brand_logos",
     });
 
-    const { error } = await supabase.from("brand").insert({ name, logo_url });
+    const { data, error } = await supabase
+      .from("brand")
+      .insert({ name, logo_url })
+      .select("id")
+      .single();
 
     if (error) {
       throw new Error(error.message);
     }
+
+    revalidatePath("/dashboard/brands");
+    return { 
+      success: true,
+      id: data.id,
+    };
+    
   } catch (error) {
     console.error("Error in createBrand:", error);
-    return { message: "Database error. Failed to create brand." };
+    return { 
+      message: "Database error. Failed to create brand.",
+      success: false 
+    };
   }
-
-  revalidatePath("/dashboard/brands");
-  redirect("/dashboard/brands");
 }
 
 const EditBrandSchema = BrandSchema.omit({ logo: true });

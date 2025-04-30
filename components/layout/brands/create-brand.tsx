@@ -3,17 +3,35 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ImageUploader from "../image-uploader";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { SubmitButton } from "../submit-button";
 import { BrandState, createBrand } from "@/app/brand-actions";
+import { useRouter } from "next/navigation";
+import { useMissingMedia } from "@/context/missing-media-context";
 
 export default function CreateBrandForm() {
-  const initialState: BrandState = { message: null, errors: {} };
+  const initialState: BrandState = {
+    message: null,
+    errors: {},
+    success: false,
+    id: null,
+  };
   const [state, formAction, pending] = useActionState(
     createBrand,
     initialState
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const { missingMedia, addMissingMedia } = useMissingMedia();
+
+  useEffect(() => {
+    if (state.success && state.id) {
+      if (!missingMedia.includes({ mediaId: state.id, type: "brand" })) {
+        addMissingMedia({ mediaId: state.id, type: "brand" });
+      }
+      router.push(`/dashboard/brands`);
+    }
+  }, [state.success, state.message, state.id, router]);
 
   const handleFileUpload = (file: File) => {
     if (fileInputRef.current) {
@@ -68,7 +86,9 @@ export default function CreateBrandForm() {
             ))}
         </div>
       </div>
-      {state.message && <p className="px-3 pb-3 text-red-500 text-sm">{state.message}</p>}
+      {state.message && (
+        <p className="px-3 pb-3 text-red-500 text-sm">{state.message}</p>
+      )}
       <SubmitButton pending={pending}>Save Brand</SubmitButton>
     </form>
   );

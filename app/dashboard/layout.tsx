@@ -2,11 +2,12 @@ import SideNav from "@/components/layout/side-nav";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen flex-col md:flex-row md:overflow-hidden">
-      <div className="w-full flex-none md:w-72">
-        <SideNav />
-      </div>
-      <div className="flex-grow m-1 md:overflow-y-auto p-3 md:2 border-2 border-black">
+    <main className="flex min-h-screen">
+      {/* Fixed SideNav - now using fixed positioning */}
+      <SideNav />
+      
+      {/* Scrollable Main Content */}
+      <div className="flex-grow md:ml-72 m-1 p-3 border-2 border-black md:overflow-y-auto">
         {children}
       </div>
     </main>

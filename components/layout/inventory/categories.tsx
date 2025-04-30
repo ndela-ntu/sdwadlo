@@ -6,9 +6,19 @@ import ShadowedBox from "../shadowed-box";
 import { createClient } from "@supabase/supabase-js";
 import ISubcategory from "@/models/subcategory";
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Trash, Edit, Save, X, Plus, Loader2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Trash,
+  Edit,
+  Save,
+  X,
+  Plus,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMissingMedia } from "@/context/missing-media-context";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,23 +30,34 @@ export default function Categories({
 }: {
   categories: ICategory[];
 }) {
+  const { addMissingMedia, removeMissingMedia } = useMissingMedia();
   const [categories, setCategories] = useState<ICategory[]>(initialCategories);
-  const [expandedCategories, setExpandedCategories] = useState<{[key: number]: boolean}>({});
-  const [subcategoriesMap, setSubcategoriesMap] = useState<{[key: number]: ISubcategory[]}>({});
-  const [isLoading, setIsLoading] = useState<{[key: number]: boolean}>({});
+  const [expandedCategories, setExpandedCategories] = useState<{
+    [key: number]: boolean;
+  }>({});
+  const [subcategoriesMap, setSubcategoriesMap] = useState<{
+    [key: number]: ISubcategory[];
+  }>({});
+  const [isLoading, setIsLoading] = useState<{ [key: number]: boolean }>({});
   const [error, setError] = useState<string>("");
-  
+
   // States for editing
-  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
-  const [editingSubcategoryId, setEditingSubcategoryId] = useState<number | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(
+    null
+  );
+  const [editingSubcategoryId, setEditingSubcategoryId] = useState<
+    number | null
+  >(null);
   const [editName, setEditName] = useState<string>("");
-  
+
   // States for adding
   const [isAddingCategory, setIsAddingCategory] = useState<boolean>(false);
-  const [isAddingSubcategory, setIsAddingSubcategory] = useState<{[key: number]: boolean}>({});
+  const [isAddingSubcategory, setIsAddingSubcategory] = useState<{
+    [key: number]: boolean;
+  }>({});
   const [newCategoryName, setNewCategoryName] = useState<string>("");
   const [newSubcategoryName, setNewSubcategoryName] = useState<string>("");
-  
+
   // Processing states
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -45,9 +66,9 @@ export default function Categories({
     if (editingCategoryId || editingSubcategoryId) return;
 
     // Toggle the expanded state
-    setExpandedCategories(prev => ({
+    setExpandedCategories((prev) => ({
       ...prev,
-      [categoryId]: !prev[categoryId]
+      [categoryId]: !prev[categoryId],
     }));
 
     // If expanding and no subcategories loaded yet, fetch them
@@ -57,7 +78,7 @@ export default function Categories({
   };
 
   const fetchSubcategories = async (categoryId: number) => {
-    setIsLoading(prev => ({ ...prev, [categoryId]: true }));
+    setIsLoading((prev) => ({ ...prev, [categoryId]: true }));
     try {
       const { data: subcategories, error } = await supabase
         .from("subcategory")
@@ -70,16 +91,16 @@ export default function Categories({
       }
 
       if (subcategories) {
-        setSubcategoriesMap(prev => ({
+        setSubcategoriesMap((prev) => ({
           ...prev,
-          [categoryId]: subcategories
+          [categoryId]: subcategories,
         }));
       }
     } catch (fetchError) {
       setError("Failed to fetch subcategories");
       console.error(fetchError);
     } finally {
-      setIsLoading(prev => ({ ...prev, [categoryId]: false }));
+      setIsLoading((prev) => ({ ...prev, [categoryId]: false }));
     }
   };
 
@@ -105,7 +126,7 @@ export default function Categories({
   // Save edited category
   const saveEditedCategory = async () => {
     if (!editingCategoryId || !editName.trim()) return;
-    
+
     setIsProcessing(true);
     try {
       const { error } = await supabase
@@ -119,12 +140,12 @@ export default function Categories({
       }
 
       // Update local state
-      setCategories(prev => 
-        prev.map(cat => 
+      setCategories((prev) =>
+        prev.map((cat) =>
           cat.id === editingCategoryId ? { ...cat, name: editName.trim() } : cat
         )
       );
-      
+
       // Clear edit state
       setEditingCategoryId(null);
       setEditName("");
@@ -139,7 +160,7 @@ export default function Categories({
   // Save edited subcategory
   const saveEditedSubcategory = async (categoryId: number) => {
     if (!editingSubcategoryId || !editName.trim()) return;
-    
+
     setIsProcessing(true);
     try {
       const { error } = await supabase
@@ -153,13 +174,16 @@ export default function Categories({
       }
 
       // Update local state
-      setSubcategoriesMap(prev => ({
+      setSubcategoriesMap((prev) => ({
         ...prev,
-        [categoryId]: prev[categoryId]?.map(subcat => 
-          subcat.id === editingSubcategoryId ? { ...subcat, name: editName.trim() } : subcat
-        ) || []
+        [categoryId]:
+          prev[categoryId]?.map((subcat) =>
+            subcat.id === editingSubcategoryId
+              ? { ...subcat, name: editName.trim() }
+              : subcat
+          ) || [],
       }));
-      
+
       // Clear edit state
       setEditingSubcategoryId(null);
       setEditName("");
@@ -173,7 +197,11 @@ export default function Categories({
 
   // Delete a category
   const deleteCategory = async (categoryId: number) => {
-    if (window.confirm("Are you sure you want to delete this category? This will also delete all associated subcategories.")) {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this category? This will also delete all associated subcategories."
+      )
+    ) {
       setIsProcessing(true);
       try {
         // First delete all subcategories
@@ -199,17 +227,17 @@ export default function Categories({
         }
 
         // Update local state
-        setCategories(prev => prev.filter(cat => cat.id !== categoryId));
-        
+        removeMissingMedia(categoryId, 'category');
+        setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
+
         // Remove from subcategories map and expanded state
         const newSubcatMap = { ...subcategoriesMap };
         delete newSubcatMap[categoryId];
         setSubcategoriesMap(newSubcatMap);
-        
+
         const newExpandedState = { ...expandedCategories };
         delete newExpandedState[categoryId];
         setExpandedCategories(newExpandedState);
-        
       } catch (deleteError) {
         setError("Failed to delete category");
         console.error(deleteError);
@@ -220,7 +248,10 @@ export default function Categories({
   };
 
   // Delete a subcategory
-  const deleteSubcategory = async (categoryId: number, subcategoryId: number) => {
+  const deleteSubcategory = async (
+    categoryId: number,
+    subcategoryId: number
+  ) => {
     if (window.confirm("Are you sure you want to delete this subcategory?")) {
       setIsProcessing(true);
       try {
@@ -235,11 +266,12 @@ export default function Categories({
         }
 
         // Update local state
-        setSubcategoriesMap(prev => ({
+        setSubcategoriesMap((prev) => ({
           ...prev,
-          [categoryId]: prev[categoryId]?.filter(subcat => subcat.id !== subcategoryId) || []
+          [categoryId]:
+            prev[categoryId]?.filter((subcat) => subcat.id !== subcategoryId) ||
+            [],
         }));
-        
       } catch (deleteError) {
         setError("Failed to delete subcategory");
         console.error(deleteError);
@@ -264,7 +296,7 @@ export default function Categories({
   // Save a new category
   const saveNewCategory = async () => {
     if (!newCategoryName.trim()) return;
-    
+
     setIsProcessing(true);
     try {
       const { data, error } = await supabase
@@ -279,8 +311,8 @@ export default function Categories({
 
       if (data && data.length > 0) {
         // Add to local state
-        setCategories(prev => [...prev, data[0] as ICategory]);
-        
+        setCategories((prev) => [...prev, data[0] as ICategory]);
+        addMissingMedia({ mediaId: data[0].id, type: "category" });
         // Clear add state
         setIsAddingCategory(false);
         setNewCategoryName("");
@@ -295,12 +327,12 @@ export default function Categories({
 
   // Start adding a new subcategory
   const startAddSubcategory = (categoryId: number) => {
-    setIsAddingSubcategory(prev => ({
+    setIsAddingSubcategory((prev) => ({
       ...prev,
-      [categoryId]: true
+      [categoryId]: true,
     }));
     setNewSubcategoryName("");
-    
+
     // Make sure the category is expanded
     if (!expandedCategories[categoryId]) {
       toggleCategory(categoryId);
@@ -309,9 +341,9 @@ export default function Categories({
 
   // Cancel adding a new subcategory
   const cancelAddSubcategory = (categoryId: number) => {
-    setIsAddingSubcategory(prev => ({
+    setIsAddingSubcategory((prev) => ({
       ...prev,
-      [categoryId]: false
+      [categoryId]: false,
     }));
     setNewSubcategoryName("");
   };
@@ -319,15 +351,17 @@ export default function Categories({
   // Save a new subcategory
   const saveNewSubcategory = async (categoryId: number) => {
     if (!newSubcategoryName.trim()) return;
-    
+
     setIsProcessing(true);
     try {
       const { data, error } = await supabase
         .from("subcategory")
-        .insert([{ 
-          name: newSubcategoryName.trim(),
-          category_id: categoryId
-        }])
+        .insert([
+          {
+            name: newSubcategoryName.trim(),
+            category_id: categoryId,
+          },
+        ])
         .select();
 
       if (error) {
@@ -337,15 +371,15 @@ export default function Categories({
 
       if (data && data.length > 0) {
         // Add to local state
-        setSubcategoriesMap(prev => ({
+        setSubcategoriesMap((prev) => ({
           ...prev,
-          [categoryId]: [...(prev[categoryId] || []), data[0] as ISubcategory]
+          [categoryId]: [...(prev[categoryId] || []), data[0] as ISubcategory],
         }));
-        
+
         // Clear add state
-        setIsAddingSubcategory(prev => ({
+        setIsAddingSubcategory((prev) => ({
           ...prev,
-          [categoryId]: false
+          [categoryId]: false,
         }));
         setNewSubcategoryName("");
       }
@@ -361,42 +395,34 @@ export default function Categories({
     <ShadowedBox>
       <div className="flex items-center justify-between mb-4">
         <Header2>Item Categories</Header2>
-        <Button 
-          onClick={startAddCategory} 
+        <Button
+          onClick={startAddCategory}
           disabled={isAddingCategory || isProcessing}
           size="sm"
         >
           <Plus className="h-4 w-4 mr-1" /> Add Category
         </Button>
       </div>
-      
+
       {isAddingCategory && (
         <div className="flex items-center space-x-2 mb-4 p-2 bg-gray-50 rounded border">
-          <Input 
+          <Input
             value={newCategoryName}
             onChange={(e) => setNewCategoryName(e.target.value)}
             placeholder="New category name"
             className="flex-grow"
           />
           <div className="flex space-x-1">
-            <Button 
-              size="sm" 
-              onClick={saveNewCategory}
-              disabled={isProcessing}
-            >
+            <Button size="sm" onClick={saveNewCategory} disabled={isProcessing}>
               <Save className="h-4 w-4" />
             </Button>
-            <Button 
-              size="sm" 
-              variant="destructive" 
-              onClick={cancelAddCategory}
-            >
+            <Button size="sm" variant="destructive" onClick={cancelAddCategory}>
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
-      
+
       <div className="flex flex-col space-y-2 mt-4">
         {categories.map((category) => (
           <div key={category.id} className="border-b pb-2">
@@ -404,23 +430,23 @@ export default function Categories({
               {editingCategoryId === category.id ? (
                 // Editing mode for category
                 <div className="flex items-center space-x-2 w-full">
-                  <Input 
+                  <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="Category name"
                     className="flex-grow"
                   />
                   <div className="flex space-x-1">
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={saveEditedCategory}
                       disabled={isProcessing}
                     >
                       <Save className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="destructive" 
+                    <Button
+                      size="sm"
+                      variant="destructive"
                       onClick={cancelEdit}
                     >
                       <X className="h-4 w-4" />
@@ -429,7 +455,7 @@ export default function Categories({
                 </div>
               ) : (
                 <>
-                  <div 
+                  <div
                     className="font-medium flex items-center space-x-2 cursor-pointer flex-grow"
                     onClick={() => toggleCategory(category.id)}
                   >
@@ -441,25 +467,25 @@ export default function Categories({
                     <span>{category.name}</span>
                   </div>
                   <div className="flex space-x-1">
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => startAddSubcategory(category.id)}
                       disabled={isProcessing}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => startEditCategory(category)}
                       disabled={isProcessing}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => deleteCategory(category.id)}
                       disabled={isProcessing}
                     >
@@ -469,28 +495,28 @@ export default function Categories({
                 </>
               )}
             </div>
-            
+
             {expandedCategories[category.id] && (
               <div className="pl-6 mt-2 space-y-1">
                 {isAddingSubcategory[category.id] && (
                   <div className="flex items-center space-x-2 mb-2 p-2 bg-gray-50 rounded border">
-                    <Input 
+                    <Input
                       value={newSubcategoryName}
                       onChange={(e) => setNewSubcategoryName(e.target.value)}
                       placeholder="New subcategory name"
                       className="flex-grow"
                     />
                     <div className="flex space-x-1">
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => saveNewSubcategory(category.id)}
                         disabled={isProcessing}
                       >
                         <Save className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
+                      <Button
+                        size="sm"
+                        variant="destructive"
                         onClick={() => cancelAddSubcategory(category.id)}
                       >
                         <X className="h-4 w-4" />
@@ -498,32 +524,37 @@ export default function Categories({
                     </div>
                   </div>
                 )}
-                
+
                 {isLoading[category.id] ? (
-                  <div className="text-sm text-gray-500"><Loader2 className="animate-spin" /></div>
+                  <div className="text-sm text-gray-500">
+                    <Loader2 className="animate-spin" />
+                  </div>
                 ) : subcategoriesMap[category.id]?.length ? (
                   subcategoriesMap[category.id].map((subcategory) => (
-                    <div key={subcategory.id} className="flex items-center justify-between py-1 px-2 hover:bg-gray-100 rounded">
+                    <div
+                      key={subcategory.id}
+                      className="flex items-center justify-between py-1 px-2 hover:bg-gray-100 rounded"
+                    >
                       {editingSubcategoryId === subcategory.id ? (
                         // Editing mode for subcategory
                         <div className="flex items-center space-x-2 w-full">
-                          <Input 
+                          <Input
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
                             placeholder="Subcategory name"
                             className="flex-grow"
                           />
                           <div className="flex space-x-1">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={() => saveEditedSubcategory(category.id)}
                               disabled={isProcessing}
                             >
                               <Save className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive" 
+                            <Button
+                              size="sm"
+                              variant="destructive"
                               onClick={cancelEdit}
                             >
                               <X className="h-4 w-4" />
@@ -535,18 +566,20 @@ export default function Categories({
                         <>
                           <span className="text-sm">{subcategory.name}</span>
                           <div className="flex space-x-1">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
+                            <Button
+                              size="sm"
+                              variant="ghost"
                               onClick={() => startEditSubcategory(subcategory)}
                               disabled={isProcessing}
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => deleteSubcategory(category.id, subcategory.id)}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                deleteSubcategory(category.id, subcategory.id)
+                              }
                               disabled={isProcessing}
                             >
                               <Trash className="h-3 w-3 text-chestNut" />
@@ -557,19 +590,21 @@ export default function Categories({
                     </div>
                   ))
                 ) : (
-                  <div className="text-sm text-gray-500">No subcategories found</div>
+                  <div className="text-sm text-gray-500">
+                    No subcategories found
+                  </div>
                 )}
               </div>
             )}
           </div>
         ))}
-        
-        {error && (
-          <div className="text-chestNut text-sm mt-2">{error}</div>
-        )}
-        
+
+        {error && <div className="text-chestNut text-sm mt-2">{error}</div>}
+
         {categories.length === 0 && !isAddingCategory && (
-          <div className="text-gray-500 text-center py-4">No categories available</div>
+          <div className="text-gray-500 text-center py-4">
+            No categories available
+          </div>
         )}
       </div>
     </ShadowedBox>

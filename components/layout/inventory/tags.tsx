@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, Edit, Plus, Trash, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useMissingMedia } from "@/context/missing-media-context";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,7 @@ const supabase = createClient(
 );
 
 export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
+  const { addMissingMedia, removeMissingMedia } = useMissingMedia();
   const [tags, setTags] = useState<ITag[]>(initialTags);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -33,6 +35,7 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
       if (error) throw error;
 
       if (data && data.length > 0) {
+        addMissingMedia({ mediaId: data[0].id, type: "tag" });
         setTags([...tags, data[0] as ITag]);
         setNewTag({ name: "" });
         setIsAdding(false);
@@ -48,6 +51,7 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
 
       if (error) throw error;
 
+      removeMissingMedia(id, "tag");
       setTags(tags.filter((tag) => tag.id !== id));
     } catch (error) {
       console.error("Error deleting tag:", error);
@@ -83,7 +87,7 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
 
       setEditingId(null);
     } catch (error) {
-        console.error("Error updating tag:", error);
+      console.error("Error updating tag:", error);
     }
   };
 

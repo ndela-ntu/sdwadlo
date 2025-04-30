@@ -17,8 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { deleteBrand } from "@/app/brand-actions";
+import { useMissingMedia } from "@/context/missing-media-context";
 
 export default function BrandEllipsisMenu({ id }: { id: number }) {
+  const { missingMedia, removeMissingMedia } = useMissingMedia();
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -33,6 +35,13 @@ export default function BrandEllipsisMenu({ id }: { id: number }) {
     setLoading(true);
     await deleteBrand(id);
     setLoading(false);
+
+    const isMissing = missingMedia.some(
+      (item) => item.mediaId === id && item.type === "brand"
+    );
+    if (isMissing) {
+      removeMissingMedia(id, "brand");
+    }
   };
 
   return (
