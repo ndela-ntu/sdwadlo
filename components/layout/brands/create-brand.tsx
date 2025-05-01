@@ -26,7 +26,10 @@ export default function CreateBrandForm() {
 
   useEffect(() => {
     if (state.success && state.id) {
-      if (!missingMedia.includes({ mediaId: state.id, type: "brand" })) {
+      const isMissing = missingMedia.some(
+        (item) => item.mediaId === state.id && item.type === "brand"
+      );
+      if (isMissing) {
         addMissingMedia({ mediaId: state.id, type: "brand" });
       }
       router.push(`/dashboard/brands`);

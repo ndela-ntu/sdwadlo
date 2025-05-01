@@ -15,4 +15,5 @@ export default interface IProduct {
   material: IMaterial;
   product_tag: Array<{ tag: ITag }>;
   type: "Clothing" | "Accessory";
+  status: 'Listed' | 'Unlisted';
 }

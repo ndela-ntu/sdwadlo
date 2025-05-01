@@ -28,12 +28,21 @@ export default function ProductTable({
 
   useEffect(() => {
     const uniqueProducts = variants.reduce<IProduct[]>((acc, variant) => {
-      if (!acc.find((p) => p.id === variant.product.id))
+      if (variant.product && !acc.find((p) => p.id === variant.product.id)) {
         acc.push(variant.product);
+      }
       return acc;
     }, []);
     setFilteredProducts(uniqueProducts);
   }, [variants]);
+
+  const handleProductStatusChange = (updatedProduct: IProduct) => {
+    setFilteredProducts((prevProducts) =>
+      prevProducts.map((product) => {
+        return product.id === updatedProduct.id ? updatedProduct : product;
+      })
+    );
+  };
 
   const toggleExpand = (productId: number) => {
     setExpandedProduct((prev) => ({
@@ -61,7 +70,9 @@ export default function ProductTable({
       <TableBody>
         {filteredProducts.map((product) => (
           <React.Fragment key={product.id}>
-            <TableRow className="hover:bg-gray-100">
+            <TableRow
+              className={`hover:bg-gray-100 ${product.status === "Unlisted" && "bg-silver text-gray-500 opacity-70"}`}
+            >
               <TableCell
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer w-10"
@@ -80,11 +91,13 @@ export default function ProductTable({
               >
                 <div className="flex flex-col space-y-1 items-center justify-center">
                   <span className="text-sm font-medium">
-                    {product.brand.name}
+                    <span className="text-sm font-medium">
+                      {product.brand?.name || "-"}
+                    </span>
                   </span>
                   <div className="relative aspect-square w-full">
                     <Image
-                      src={product.brand.logo_url || "/placeholder-image.svg"}
+                      src={product.brand?.logo_url || "/placeholder-image.svg"}
                       alt={`${product.name} logo`}
                       layout="intrinsic" // Ensure the image maintains its aspect ratio
                       width={92} // Set fixed width
@@ -101,40 +114,43 @@ export default function ProductTable({
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                {product.name}
+                {product.brand?.name || "-"}
               </TableCell>
               <TableCell
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                R{product.price.toFixed(2)}
+                R{product.price?.toFixed(2) || "-"}
               </TableCell>
               <TableCell
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                {product.type}
+                {product?.type || "-"}
               </TableCell>
               <TableCell
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                {product.category.name}
+                {product.category?.name || "-"}
               </TableCell>
               <TableCell
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                {product.subcategory.name}
+                {product.subcategory?.name || "-"}
               </TableCell>
               <TableCell
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                {product.material.name}
+                {product.material?.name || "-"}
               </TableCell>
               <TableCell>
-                <ProductEllipsisMenu id={product.id} />
+                <ProductEllipsisMenu
+                  id={product.id}
+                  onStatusChange={handleProductStatusChange}
+                />
               </TableCell>
             </TableRow>
 
