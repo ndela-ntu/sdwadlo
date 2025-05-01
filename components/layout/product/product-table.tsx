@@ -45,10 +45,15 @@ export default function ProductTable({
   };
 
   const toggleExpand = (productId: number) => {
-    setExpandedProduct((prev) => ({
-      ...prev,
-      [productId]: !prev[productId],
-    }));
+    if (
+      filteredProducts.find((product) => product.id === productId)?.status ===
+      "Listed"
+    ) {
+      setExpandedProduct((prev) => ({
+        ...prev,
+        [productId]: !prev[productId],
+      }));
+    }
   };
 
   return (
