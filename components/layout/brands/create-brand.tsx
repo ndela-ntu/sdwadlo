@@ -29,7 +29,7 @@ export default function CreateBrandForm() {
       const isMissing = missingMedia.some(
         (item) => item.mediaId === state.id && item.type === "brand"
       );
-      if (isMissing) {
+      if (!isMissing) {
         addMissingMedia({ mediaId: state.id, type: "brand" });
       }
       router.push(`/dashboard/brands`);
