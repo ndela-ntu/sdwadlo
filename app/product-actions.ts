@@ -372,6 +372,7 @@ export async function createProduct(
           subcategory_id: parseInt(subcategory),
           material_id: parseInt(material),
           type,
+          status: "Listed",
         })
         .select("id")
         .single();
