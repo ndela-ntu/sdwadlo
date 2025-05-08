@@ -8,6 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Edit, Plus, Trash, Check, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,11 +25,15 @@ const supabase = createClient(
 );
 
 export default function SizesTool({ sizes: initialSizes }: { sizes: ISize[] }) {
+  const { toast } = useToast();
   const [sizes, setSizes] = useState<ISize[]>(initialSizes);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newSize, setNewSize] = useState({ name: "", type: "alpha" });
   const [editSize, setEditSize] = useState({ name: "", type: "" });
+  const [sizeToDelete, setSizeToDelete] = useState<ISize | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const handleAddSize = async () => {
     if (newSize.name.trim() === "") return;
@@ -37,20 +51,97 @@ export default function SizesTool({ sizes: initialSizes }: { sizes: ISize[] }) {
         setNewSize({ name: "", type: "alpha" });
         setIsAdding(false);
       }
-    } catch (error) {
-      console.error("Error adding size:", error);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDeleteSize = async (id: number) => {
+  const handleDeleteSize = async () => {
+    if (!sizeToDelete) return;
+
+    setIsDeleting(true);
     try {
-      const { error } = await supabase.from("size").delete().eq("id", id);
+      // 1. First get all product variants using this size
+      const { data: variants, error: variantsError } = await supabase
+        .from("product_variant")
+        .select("product_id")
+        .eq("size_id", sizeToDelete.id);
 
-      if (error) throw error;
+      if (variantsError) throw variantsError;
 
-      setSizes(sizes.filter((size) => size.id !== id));
-    } catch (error) {
-      console.error("Error deleting size:", error);
+      const productIds = variants?.map((v) => v.product_id) || [];
+
+      // 2. Delete all variants with this size
+      const { error: deleteVariantsError } = await supabase
+        .from("product_variant")
+        .delete()
+        .eq("size_id", sizeToDelete.id);
+
+      if (deleteVariantsError) throw deleteVariantsError;
+
+      // 3. For affected products, check if they have any remaining variants
+      if (productIds.length > 0) {
+        // Get remaining variants for these products
+        const { data: remainingVariants, error: remainingError } =
+          await supabase
+            .from("product_variant")
+            .select("product_id")
+            .in("product_id", productIds);
+
+        if (remainingError) throw remainingError;
+
+        // Find products with no remaining variants
+        const productsWithVariants = new Set(
+          remainingVariants?.map((v) => v.product_id) || []
+        );
+        const productsToDelete = productIds.filter(
+          (id) => !productsWithVariants.has(id)
+        );
+
+        // Delete orphaned products and their dependencies
+        if (productsToDelete.length > 0) {
+          // Delete product tags first
+          const { error: deleteProductTagsError } = await supabase
+            .from("product_tag")
+            .delete()
+            .in("product_id", productsToDelete);
+
+          if (deleteProductTagsError) throw deleteProductTagsError;
+
+          // Then delete the products
+          const { error: deleteProductsError } = await supabase
+            .from("product")
+            .delete()
+            .in("id", productsToDelete);
+
+          if (deleteProductsError) throw deleteProductsError;
+        }
+      }
+
+      // 4. Finally delete the size itself
+      const { error: deleteSizeError } = await supabase
+        .from("size")
+        .delete()
+        .eq("id", sizeToDelete.id);
+
+      if (deleteSizeError) throw deleteSizeError;
+
+      // Update local state
+      setSizes(sizes.filter((size) => size.id !== sizeToDelete.id));
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setSizeToDelete(null);
     }
   };
 
@@ -196,13 +287,55 @@ export default function SizesTool({ sizes: initialSizes }: { sizes: ISize[] }) {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteSize(size.id)}
+
+                  {/* Delete Confirmation Dialog */}
+                  <Dialog
+                    open={isDeleteDialogOpen && sizeToDelete?.id === size.id}
+                    onOpenChange={setIsDeleteDialogOpen}
                   >
-                    <Trash className="h-4 w-4 text-chestNut" />
-                  </Button>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSizeToDelete(size);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash className="h-4 w-4 text-chestNut" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirm Deletion</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete the size "{size.name}
+                          "?
+                          <br />
+                          <span className="font-semibold text-red-500">
+                            This will also delete all product and variants that
+                            use this size.
+                          </span>
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDeleteDialogOpen(false)}
+                          disabled={isDeleting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDeleteSize}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </>
               )}
             </div>
