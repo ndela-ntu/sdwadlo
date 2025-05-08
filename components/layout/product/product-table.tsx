@@ -100,15 +100,14 @@ export default function ProductTable({
                       {product.brand?.name || "-"}
                     </span>
                   </span>
-                  <div className="relative aspect-square w-full">
+                  <div className="relative aspect-square w-full border border-silver rounded-md">
                     <Image
                       src={product.brand?.logo_url || "/placeholder-image.svg"}
                       alt={`${product.name} logo`}
-                      layout="intrinsic" // Ensure the image maintains its aspect ratio
-                      width={92} // Set fixed width
-                      height={92} // Set fixed height
+                      fill // This makes the image fill the container
+                      sizes="92px" // Optional: helps with performance
                       style={{
-                        objectFit: "contain",
+                        objectFit: "contain", // This ensures the image fits within the container while maintaining aspect ratio
                       }}
                       className="rounded-sm"
                     />
