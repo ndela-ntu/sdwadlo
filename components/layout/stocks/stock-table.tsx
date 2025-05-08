@@ -154,6 +154,7 @@ export default function StockTable() {
             <TableHead className="w-[7.5%]">Image</TableHead>
             <TableHead className="w-[15%]">Brand</TableHead>
             <TableHead className="w-[25%]">Name</TableHead>
+            <TableHead className="w-[15%]">Size</TableHead>
             <TableHead className="w-[150px]">Stock Count</TableHead>
             <TableHead className="w-[200px]">Functions</TableHead>
           </TableRow>
@@ -177,7 +178,9 @@ export default function StockTable() {
               <TableRow
                 key={variant.id}
                 className={
-                  isLowStock ? "bg-red-500 text-white hover:text-eerieBlack" : ""
+                  isLowStock
+                    ? "bg-red-500 text-white hover:text-eerieBlack"
+                    : ""
                 }
               >
                 <TableCell className="w-[7.5%]">
@@ -196,6 +199,7 @@ export default function StockTable() {
                 </TableCell>
                 <TableCell>{variant.product.brand.name}</TableCell>
                 <TableCell>{variant.product.name}</TableCell>
+                <TableCell>{variant?.size?.name ?? "-"}</TableCell>
                 <TableCell className="w-[150px]">
                   {isEditing ? (
                     <Input
