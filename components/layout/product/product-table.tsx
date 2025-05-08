@@ -118,7 +118,7 @@ export default function ProductTable({
                 onClick={() => toggleExpand(product.id)}
                 className="cursor-pointer"
               >
-                {product.brand?.name || "-"}
+                {product.name || "-"}
               </TableCell>
               <TableCell
                 onClick={() => toggleExpand(product.id)}
