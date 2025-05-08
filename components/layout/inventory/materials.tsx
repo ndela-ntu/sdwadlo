@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Button } from "@/components/ui/button";
 import Header2 from "../header2";
@@ -8,6 +8,16 @@ import { useState } from "react";
 import { Check, Edit, Plus, Trash, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@supabase/supabase-js";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,11 +29,17 @@ export default function Materials({
 }: {
   materials: IMaterial[];
 }) {
+  const { toast } = useToast();
   const [materials, setMaterials] = useState<IMaterial[]>(initialMaterials);
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newMaterial, setNewMaterial] = useState({ name: "" });
   const [editMaterial, setEditMaterial] = useState({ name: "" });
+  const [materialToDelete, setMaterialToDelete] = useState<IMaterial | null>(
+    null
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleAddMaterial = async () => {
     if (newMaterial.name.trim() === "") return;
@@ -41,20 +57,78 @@ export default function Materials({
         setNewMaterial({ name: "" });
         setIsAdding(false);
       }
-    } catch (error) {
-      console.error("Error adding material:", error);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
+  const handleDeleteMaterial = async () => {
+    if (!materialToDelete) return;
 
-  const handleDeleteMaterial = async (id: number) => {
+    setIsDeleting(true);
     try {
-      const { error } = await supabase.from("material").delete().eq("id", id);
+      // 1. First get all products using this material
+      const { data: products, error: productsError } = await supabase
+        .from("product")
+        .select("id")
+        .eq("material_id", materialToDelete.id);
 
-      if (error) throw error;
+      if (productsError) throw productsError;
 
-      setMaterials(materials.filter((material) => material.id !== id));
-    } catch (error) {
-      console.error("Error deleting material:", error);
+      const productIds = products?.map((p) => p.id) || [];
+
+      // 2. Delete all variants for these products first
+      if (productIds.length > 0) {
+        // Delete product variants
+        const { error: variantsError } = await supabase
+          .from("product_variant")
+          .delete()
+          .in("product_id", productIds);
+
+        if (variantsError) throw variantsError;
+
+        // Delete product tags
+        const { error: tagsError } = await supabase
+          .from("product_tag")
+          .delete()
+          .in("product_id", productIds);
+
+        if (tagsError) throw tagsError;
+
+        // Delete the products themselves
+        const { error: productsError } = await supabase
+          .from("product")
+          .delete()
+          .in("id", productIds);
+
+        if (productsError) throw productsError;
+      }
+
+      // 3. Finally delete the material itself
+      const { error: deleteMaterialError } = await supabase
+        .from("material")
+        .delete()
+        .eq("id", materialToDelete.id);
+
+      if (deleteMaterialError) throw deleteMaterialError;
+
+      // Update local state
+      setMaterials(
+        materials.filter((material) => material.id !== materialToDelete.id)
+      );
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setIsDialogOpen(false);
+      setMaterialToDelete(null);
     }
   };
 
@@ -128,6 +202,7 @@ export default function Materials({
           </Button>
         </div>
       )}
+
       <div>
         {materials.map((material) => (
           <div
@@ -168,13 +243,51 @@ export default function Materials({
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteMaterial(material.id)}
+
+                  {/* Delete Confirmation Dialog */}
+                  <Dialog
+                    open={isDialogOpen && materialToDelete?.id === material.id}
+                    onOpenChange={setIsDialogOpen}
                   >
-                    <Trash className="h-4 w-4 text-chestNut" />
-                  </Button>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setMaterialToDelete(material);
+                          setIsDialogOpen(true);
+                        }}
+                      >
+                        <Trash className="h-4 w-4 text-chestNut" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirm Deletion</DialogTitle>
+                        <DialogDescription>
+                          This will permanently delete the material{" "}
+                          {materialToDelete?.name} and any products associated
+                          with it.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDialogOpen(false)}
+                          disabled={isDeleting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDeleteMaterial}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </>
               )}
             </div>
