@@ -10,17 +10,35 @@ import Divider from "../divider";
 import { Trash } from "lucide-react";
 import debounce from "lodash/debounce";
 import { createClient } from "@supabase/supabase-js";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { title } from "process";
+import { useToast } from "@/hooks/use-toast";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function ColorPicker({ colors: initialColors }: { colors: IColor[] }) {
+export default function ColorPicker({
+  colors: initialColors,
+}: {
+  colors: IColor[];
+}) {
+  const { toast } = useToast();
   const [colors, setColors] = useState<IColor[]>(initialColors);
   const [hex, setHex] = useState("#ffffff");
   const [colorName, setColorName] = useState("White");
   const [isLoading, setIsLoading] = useState(false);
+  const [colorToDelete, setColorToDelete] = useState<IColor | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const fetchColorName = useCallback(
     debounce(async (newHex: string) => {
@@ -54,7 +72,7 @@ export default function ColorPicker({ colors: initialColors }: { colors: IColor[
       if (data && data.length > 0) {
         setColors([...colors, data[0] as IColor]);
       }
-      
+
       // Reset color input
       setHex("#ffffff");
       setColorName("White");
@@ -64,28 +82,99 @@ export default function ColorPicker({ colors: initialColors }: { colors: IColor[
       setIsLoading(false);
     }
   };
+  
+  const removeColor = async () => {
+    if (!colorToDelete) return;
 
-  const removeColor = async (id: number) => {
     setIsLoading(true);
     try {
-      // Delete color from Supabase
-      const { error } = await supabase
-        .from("color")
-        .delete()
-        .eq("id", id);
+      // 1. First get all product variants that use this color
+      const { data: variantsToDelete, error: variantsError } = await supabase
+        .from("product_variant")
+        .select("product_id")
+        .eq("color_id", colorToDelete.id);
 
-      if (error) {
-        console.error("Error removing color:", error);
-        return;
+      if (variantsError) throw variantsError;
+
+      const affectedProductIds = Array.from(
+        new Set(variantsToDelete?.map((v) => v.product_id) || [])
+      );
+
+      // 2. Delete all variants with this color
+      const { error: deleteVariantsError } = await supabase
+        .from("product_variant")
+        .delete()
+        .eq("color_id", colorToDelete.id);
+
+      if (deleteVariantsError) throw deleteVariantsError;
+
+      // 3. For affected products, first delete their tags, then check if they have other variants
+      if (affectedProductIds.length > 0) {
+        // Delete product tags first
+        const { error: deleteTagsError } = await supabase
+          .from("product_tag")
+          .delete()
+          .in("product_id", affectedProductIds);
+
+        if (deleteTagsError) throw deleteTagsError;
+
+        // Check which products now have no variants left
+        const { data: remainingVariants, error: remainingError } =
+          await supabase
+            .from("product_variant")
+            .select("product_id")
+            .in("product_id", affectedProductIds);
+
+        if (remainingError) throw remainingError;
+
+        const productsWithVariants = new Set(
+          remainingVariants?.map((v) => v.product_id) || []
+        );
+        const productsToDelete = affectedProductIds.filter(
+          (id) => !productsWithVariants.has(id)
+        );
+
+        // Delete the orphaned products
+        if (productsToDelete.length > 0) {
+          const { error: deleteProductsError } = await supabase
+            .from("product")
+            .delete()
+            .in("id", productsToDelete);
+
+          if (deleteProductsError) throw deleteProductsError;
+        }
       }
 
-      // Update local state by filtering out the deleted color
-      setColors(colors.filter(color => color.id !== id));
-    } catch (error) {
-      console.error("Failed to remove color:", error);
+      // 4. Finally delete the color itself
+      const { error: deleteColorError } = await supabase
+        .from("color")
+        .delete()
+        .eq("id", colorToDelete.id);
+
+      if (deleteColorError) throw deleteColorError;
+
+      // Update state and show success
+      setColors(colors.filter((color) => color.id !== colorToDelete.id));
+      setIsDialogOpen(false);
+      setColorToDelete(null);
+      toast({
+        title: "Success",
+        description: "Color and associated data deleted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred during deletion",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const openDeleteDialog = (color: IColor) => {
+    setColorToDelete(color);
+    setIsDialogOpen(true);
   };
 
   return (
@@ -103,7 +192,10 @@ export default function ColorPicker({ colors: initialColors }: { colors: IColor[
             ></div>
             <div className="bg-chestNut text-white flex items-center space-x-2 rounded-lg p-2.5 mt-2.5">
               <span className="text-xs">{color.name}</span>
-              <button onClick={() => removeColor(color.id)} disabled={isLoading}>
+              <button
+                onClick={() => openDeleteDialog(color)}
+                disabled={isLoading}
+              >
                 <Trash className="h-5 w-5" />
               </button>
             </div>
@@ -113,23 +205,45 @@ export default function ColorPicker({ colors: initialColors }: { colors: IColor[
       <Divider margin="5px 0" />
       <div className="flex items-center justify-between space-x-2.5 py-2.5">
         <div className="flex items-center space-x-2.5">
-          <input
-            type="color"
-            value={hex}
-            onChange={handleColorChange}
-          />
+          <input type="color" value={hex} onChange={handleColorChange} />
           <div className="flex flex-col">
             <p className="italic">{hex}</p>
             <p className="text-sm font-bold">{colorName || "Fetching..."}</p>
           </div>
         </div>
-        <Button 
-          onClick={addColor} 
-          disabled={isLoading}
-        >
+        <Button onClick={addColor} disabled={isLoading}>
           +
         </Button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete the color {colorToDelete?.name} and
+              any products associated with it.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={removeColor}
+              disabled={isLoading}
+            >
+              {isLoading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ShadowedBox>
   );
 }

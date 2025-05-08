@@ -15,10 +15,29 @@ import {
   X,
   Plus,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMissingMedia } from "@/context/missing-media-context";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    return String(error.message);
+  }
+  return "An unknown error occurred";
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +49,7 @@ export default function Categories({
 }: {
   categories: ICategory[];
 }) {
+  const { toast } = useToast();
   const { addMissingMedia, removeMissingMedia } = useMissingMedia();
   const [categories, setCategories] = useState<ICategory[]>(initialCategories);
   const [expandedCategories, setExpandedCategories] = useState<{
@@ -39,7 +59,6 @@ export default function Categories({
     [key: number]: ISubcategory[];
   }>({});
   const [isLoading, setIsLoading] = useState<{ [key: number]: boolean }>({});
-  const [error, setError] = useState<string>("");
 
   // States for editing
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(
@@ -60,6 +79,15 @@ export default function Categories({
 
   // Processing states
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  // Dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [itemToDelete, setItemToDelete] = useState<{
+    type: "category" | "subcategory";
+    categoryId: number;
+    subcategoryId?: number;
+    name: string;
+  } | null>(null);
 
   const toggleCategory = async (categoryId: number) => {
     // Skip toggling if in edit mode
@@ -85,10 +113,7 @@ export default function Categories({
         .select("*")
         .eq("category_id", categoryId);
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
       if (subcategories) {
         setSubcategoriesMap((prev) => ({
@@ -96,9 +121,12 @@ export default function Categories({
           [categoryId]: subcategories,
         }));
       }
-    } catch (fetchError) {
-      setError("Failed to fetch subcategories");
-      console.error(fetchError);
+    } catch (fetchError: any) {
+      toast({
+        title: "Error",
+        description: fetchError.message || "An error occurred during fetch",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading((prev) => ({ ...prev, [categoryId]: false }));
     }
@@ -134,10 +162,7 @@ export default function Categories({
         .update({ name: editName.trim() })
         .eq("id", editingCategoryId);
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
       // Update local state
       setCategories((prev) =>
@@ -149,9 +174,12 @@ export default function Categories({
       // Clear edit state
       setEditingCategoryId(null);
       setEditName("");
-    } catch (saveError) {
-      setError("Failed to update category");
-      console.error(saveError);
+    } catch (saveError: any) {
+      toast({
+        title: "Error",
+        description: saveError.message || "An error occurred during fetch",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -168,10 +196,7 @@ export default function Categories({
         .update({ name: editName.trim() })
         .eq("id", editingSubcategoryId);
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
       // Update local state
       setSubcategoriesMap((prev) => ({
@@ -187,97 +212,212 @@ export default function Categories({
       // Clear edit state
       setEditingSubcategoryId(null);
       setEditName("");
-    } catch (saveError) {
-      setError("Failed to update subcategory");
-      console.error(saveError);
+    } catch (saveError: any) {
+      toast({
+        title: "Error",
+        description: saveError.message || "An error occurred during fetch",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Delete a category
-  const deleteCategory = async (categoryId: number) => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete this category? This will also delete all associated subcategories."
-      )
-    ) {
-      setIsProcessing(true);
-      try {
-        // First delete all subcategories
-        const { error: subcatError } = await supabase
+  // Show dialog to confirm category deletion
+  const confirmDeleteCategory = (category: ICategory) => {
+    setItemToDelete({
+      type: "category",
+      categoryId: category.id,
+      name: category.name,
+    });
+    setDeleteDialogOpen(true);
+  };
+
+  // Show dialog to confirm subcategory deletion
+  const confirmDeleteSubcategory = (
+    categoryId: number,
+    subcategory: ISubcategory
+  ) => {
+    setItemToDelete({
+      type: "subcategory",
+      categoryId: categoryId,
+      subcategoryId: subcategory.id,
+      name: subcategory.name,
+    });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!itemToDelete) return;
+
+    setIsProcessing(true);
+    setDeleteDialogOpen(false);
+
+    try {
+      if (itemToDelete.type === "category") {
+        // 1. Get all subcategories in this category
+        const { data: subcategories, error: subcatFetchError } = await supabase
+          .from("subcategory")
+          .select("id")
+          .eq("category_id", itemToDelete.categoryId);
+
+        if (subcatFetchError) throw subcatFetchError;
+
+        const subcategoryIds = subcategories?.map((sub) => sub.id) || [];
+
+        const { data: directProducts, error: productsFetchError } =
+          await supabase
+            .from("product")
+            .select("id")
+            .eq("category_id", itemToDelete.categoryId);
+
+        if (productsFetchError) throw productsFetchError;
+
+        const { data: subcategoryProducts, error: subcatProductsError } =
+          await supabase
+            .from("product")
+            .select("id")
+            .in("subcategory_id", subcategoryIds);
+
+        if (subcatProductsError) throw subcatProductsError;
+
+        const allProductIds = [
+          ...(directProducts?.map((p) => p.id) || []),
+          ...(subcategoryProducts?.map((p) => p.id) || []),
+        ].filter((v, i, a) => a.indexOf(v) === i);
+
+        // 2. Delete all dependent records
+        if (allProductIds.length > 0) {
+          const { error: deleteProductTagsError } = await supabase
+            .from("product_tag")
+            .delete()
+            .in("product_id", allProductIds);
+
+          if (deleteProductTagsError) throw deleteProductTagsError;
+
+          const { error: deleteVariantsError } = await supabase
+            .from("product_variant")
+            .delete()
+            .in("product_id", allProductIds);
+
+          if (deleteVariantsError) throw deleteVariantsError;
+
+          const { error: deleteProductsError } = await supabase
+            .from("product")
+            .delete()
+            .or(
+              `id.in.(${allProductIds.join(",")}),category_id.eq.${itemToDelete.categoryId}`
+            );
+
+          if (deleteProductsError) throw deleteProductsError;
+        }
+
+        const { error: deleteSubcatError } = await supabase
           .from("subcategory")
           .delete()
-          .eq("category_id", categoryId);
+          .eq("category_id", itemToDelete.categoryId);
 
-        if (subcatError) {
-          setError(subcatError.message);
-          return;
-        }
+        if (deleteSubcatError) throw deleteSubcatError;
 
-        // Then delete the category
-        const { error } = await supabase
+        // 3. Now safe to delete category
+        const { data: deleteCategoryError } = await supabase
           .from("category")
           .delete()
-          .eq("id", categoryId);
+          .eq("id", itemToDelete.categoryId);
 
-        if (error) {
-          setError(error.message);
-          return;
-        }
+        if (deleteCategoryError) throw deleteCategoryError;
 
         // Update local state
-        removeMissingMedia(categoryId, 'category');
-        setCategories((prev) => prev.filter((cat) => cat.id !== categoryId));
+        removeMissingMedia(itemToDelete.categoryId, "category");
+        setCategories((prev) =>
+          prev.filter((cat) => cat.id !== itemToDelete.categoryId)
+        );
 
         // Remove from subcategories map and expanded state
         const newSubcatMap = { ...subcategoriesMap };
-        delete newSubcatMap[categoryId];
+        delete newSubcatMap[itemToDelete.categoryId];
         setSubcategoriesMap(newSubcatMap);
 
         const newExpandedState = { ...expandedCategories };
-        delete newExpandedState[categoryId];
+        delete newExpandedState[itemToDelete.categoryId];
         setExpandedCategories(newExpandedState);
-      } catch (deleteError) {
-        setError("Failed to delete category");
-        console.error(deleteError);
-      } finally {
-        setIsProcessing(false);
-      }
-    }
-  };
 
-  // Delete a subcategory
-  const deleteSubcategory = async (
-    categoryId: number,
-    subcategoryId: number
-  ) => {
-    if (window.confirm("Are you sure you want to delete this subcategory?")) {
-      setIsProcessing(true);
-      try {
+        toast({
+          title: "Success",
+          description: `Category "${itemToDelete.name}" and all its contents have been deleted`,
+        });
+      } else if (
+        itemToDelete.type === "subcategory" &&
+        itemToDelete.subcategoryId
+      ) {
+        // 1. Get all products in this subcategory
+        const { data: products, error: productsError } = await supabase
+          .from("product")
+          .select("id")
+          .eq("subcategory_id", itemToDelete.subcategoryId);
+
+        if (productsError) throw productsError;
+
+        const productIds = products?.map((p) => p.id) || [];
+
+        // 2. Delete dependent records
+        if (productIds.length > 0) {
+          // Delete product tags
+          const { error: tagsError } = await supabase
+            .from("product_tag")
+            .delete()
+            .in("product_id", productIds);
+
+          if (tagsError) throw tagsError;
+
+          // Delete product variants
+          const { error: variantsError } = await supabase
+            .from("product_variant")
+            .delete()
+            .in("product_id", productIds);
+
+          if (variantsError) throw variantsError;
+
+          // Delete products
+          const { error: productsDeleteError } = await supabase
+            .from("product")
+            .delete()
+            .in("id", productIds);
+
+          if (productsDeleteError) throw productsDeleteError;
+        }
+
+        // 3. Delete the subcategory
         const { error } = await supabase
           .from("subcategory")
           .delete()
-          .eq("id", subcategoryId);
+          .eq("id", itemToDelete.subcategoryId);
 
-        if (error) {
-          setError(error.message);
-          return;
-        }
+        if (error) throw error;
 
         // Update local state
         setSubcategoriesMap((prev) => ({
           ...prev,
-          [categoryId]:
-            prev[categoryId]?.filter((subcat) => subcat.id !== subcategoryId) ||
-            [],
+          [itemToDelete.categoryId]:
+            prev[itemToDelete.categoryId]?.filter(
+              (subcat) => subcat.id !== itemToDelete.subcategoryId
+            ) || [],
         }));
-      } catch (deleteError) {
-        setError("Failed to delete subcategory");
-        console.error(deleteError);
-      } finally {
-        setIsProcessing(false);
+
+        toast({
+          title: "Success",
+          description: `Subcategory "${itemToDelete.name}" and all its products have been deleted`,
+        });
       }
+    } catch (deleteError: any) {
+      toast({
+        title: "Error",
+        description: deleteError.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+      setItemToDelete(null);
     }
   };
 
@@ -304,10 +444,7 @@ export default function Categories({
         .insert([{ name: newCategoryName.trim() }])
         .select();
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
       if (data && data.length > 0) {
         // Add to local state
@@ -317,9 +454,12 @@ export default function Categories({
         setIsAddingCategory(false);
         setNewCategoryName("");
       }
-    } catch (saveError) {
-      setError("Failed to add category");
-      console.error(saveError);
+    } catch (saveError: any) {
+      toast({
+        title: "Error",
+        description: saveError.message || "An error occurred during fetch",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -364,10 +504,7 @@ export default function Categories({
         ])
         .select();
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      if (error) throw error;
 
       if (data && data.length > 0) {
         // Add to local state
@@ -383,9 +520,12 @@ export default function Categories({
         }));
         setNewSubcategoryName("");
       }
-    } catch (saveError) {
-      setError("Failed to add subcategory");
-      console.error(saveError);
+    } catch (saveError: any) {
+      toast({
+        title: "Error",
+        description: saveError.message || "An error occurred during fetch",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -486,7 +626,7 @@ export default function Categories({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => deleteCategory(category.id)}
+                      onClick={() => confirmDeleteCategory(category)}
                       disabled={isProcessing}
                     >
                       <Trash className="h-4 w-4 text-chestNut" />
@@ -578,7 +718,10 @@ export default function Categories({
                               size="sm"
                               variant="ghost"
                               onClick={() =>
-                                deleteSubcategory(category.id, subcategory.id)
+                                confirmDeleteSubcategory(
+                                  category.id,
+                                  subcategory
+                                )
                               }
                               disabled={isProcessing}
                             >
@@ -599,14 +742,57 @@ export default function Categories({
           </div>
         ))}
 
-        {error && <div className="text-chestNut text-sm mt-2">{error}</div>}
-
         {categories.length === 0 && !isAddingCategory && (
           <div className="text-gray-500 text-center py-4">
             No categories available
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Confirm Deletion
+            </DialogTitle>
+            <DialogDescription>
+              {itemToDelete?.type === "category"
+                ? `Are you sure you want to delete the category "${itemToDelete?.name}"?`
+                : `Are you sure you want to delete the subcategory "${itemToDelete?.name}"?`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3">
+            <p className="text-sm text-red-500 font-medium">
+              {itemToDelete?.type === "category"
+                ? "This will also delete all subcategories and any products associated with this category."
+                : "This will delete any products associated with this subcategory."}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirmed}
+              disabled={isProcessing}
+              className="gap-2"
+            >
+              {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete {itemToDelete?.type}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ShadowedBox>
   );
 }
