@@ -12,15 +12,24 @@ import {
 import IBrand from "@/models/brand";
 import Image from "next/image";
 import BrandEllipsisMenu from "./brand-ellipsis-menu";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMissingMedia } from "@/context/missing-media-context";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export default function BrandsTable({ brands }: { brands: IBrand[] }) {
-  const supabase = createClient();
-  const { toast } = useToast();
-  const { missingMedia, addMissingMedia } = useMissingMedia();
+  const [brandsState, setBrandsState] = useState<IBrand[]>(brands);
+
+  const handleBrandStatusChange = (updatedBrand: IBrand) => {
+    setBrandsState(
+      brandsState.map((brand) => {
+        if (brand.id === updatedBrand.id) {
+          return updatedBrand;
+        }
+        return brand;
+      })
+    );
+  };
 
   return (
     <Table>
@@ -33,8 +42,11 @@ export default function BrandsTable({ brands }: { brands: IBrand[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {brands.map((brand) => (
-          <TableRow key={brand.id}>
+        {brandsState.map((brand) => (
+          <TableRow
+            key={brand.id}
+            className={`hover:bg-gray-100 ${brand.status === "Inactive" && "bg-silver text-gray-500 opacity-70"}`}
+          >
             <TableCell className="w-[7.5%]">
               <div className="relative aspect-square w-full">
                 <Image
@@ -51,7 +63,10 @@ export default function BrandsTable({ brands }: { brands: IBrand[] }) {
             </TableCell>
             <TableCell>{brand.name}</TableCell>
             <TableCell className="text-right">
-              <BrandEllipsisMenu id={brand.id} />
+              <BrandEllipsisMenu
+                id={brand.id}
+                onStatusChange={handleBrandStatusChange}
+              />
             </TableCell>
           </TableRow>
         ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MoreHorizontal,
@@ -8,6 +8,7 @@ import {
   Trash,
   MoreVertical,
   Loader2,
+  FileChartColumn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,13 +28,54 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { createClient } from "@/utils/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import IBrand from "@/models/brand";
 
-export default function BrandEllipsisMenu({ id }: { id: number }) {
+export default function BrandEllipsisMenu({
+  id,
+  onStatusChange,
+}: {
+  id: number;
+  onStatusChange?: (updatedBrand: IBrand) => void;
+}) {
+  const supabase = createClient();
+  const { toast } = useToast();
   const { missingMedia, removeMissingMedia } = useMissingMedia();
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [brand, setBrand] = useState<IBrand | null>(null);
+
+  useEffect(() => {
+    const fetchBrand = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("brand")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          setBrand(data);
+        }
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "An unexpected error occurred",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBrand();
+  }, [id]);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -50,7 +92,7 @@ export default function BrandEllipsisMenu({ id }: { id: number }) {
     setDeleteLoading(true);
     try {
       await deleteBrand(id);
-      
+
       const isMissing = missingMedia.some(
         (item) => item.mediaId === id && item.type === "brand"
       );
@@ -60,6 +102,32 @@ export default function BrandEllipsisMenu({ id }: { id: number }) {
     } finally {
       setDeleteLoading(false);
       setIsDialogOpen(false);
+    }
+  };
+
+  const handleStatusToggle = async () => {
+    if (!brand) return;
+
+    setLoading(true);
+    try {
+      const { data: updatedBrand, error } = await supabase
+        .from("brand")
+        .update({ status: brand.status === "Active" ? "Inactive" : "Active" })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+        if (error) throw error;
+        setBrand(updatedBrand);
+        onStatusChange?.(updatedBrand);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -85,6 +153,10 @@ export default function BrandEllipsisMenu({ id }: { id: number }) {
             <Edit className="mr-2 h-4 w-4" />
             <span>Edit</span>
           </DropdownMenuItem>
+          <DropdownMenuItem disabled={loading} onClick={handleStatusToggle}>
+            <FileChartColumn className="mr-2 h-4 w-4" />
+            <span>{brand?.status === "Active" ? "Inactive" : "Active"}</span>
+          </DropdownMenuItem>
           <DropdownMenuItem disabled={loading} onClick={handleDelete}>
             <Trash className="mr-2 h-4 w-4" />
             <span>Delete</span>
@@ -109,15 +181,15 @@ export default function BrandEllipsisMenu({ id }: { id: number }) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsDialogOpen(false)}
               disabled={deleteLoading}
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={confirmDelete}
               disabled={deleteLoading}
             >

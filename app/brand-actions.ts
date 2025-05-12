@@ -57,7 +57,7 @@ export async function createBrand(prevState: BrandState, formData: FormData): Pr
 
     const { data, error } = await supabase
       .from("brand")
-      .insert({ name, logo_url })
+      .insert({ name, logo_url, status: 'Active' })
       .select("id")
       .single();
 
@@ -128,6 +128,7 @@ export async function editBrand(prevState: BrandState, formData: FormData) {
   revalidatePath("/dashboard/brands");
   redirect("/dashboard/brands");
 }
+
 export async function deleteBrand(id: number) {
   const supabase = await createClient();
 

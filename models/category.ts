@@ -4,4 +4,5 @@ export default interface ICategory {
     id: number;
     name: string;
     media_url: string;
+    status: "Active" | "Inactive";
 }

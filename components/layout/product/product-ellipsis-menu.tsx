@@ -75,7 +75,6 @@ export default function ProductEllipsisMenu({
 
       if (error) throw error;
       setProduct(updatedProduct);
-      console.log(updatedProduct);
       onStatusChange?.(updatedProduct);
     } catch (error) {
       toast({
