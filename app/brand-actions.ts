@@ -128,33 +128,72 @@ export async function editBrand(prevState: BrandState, formData: FormData) {
   revalidatePath("/dashboard/brands");
   redirect("/dashboard/brands");
 }
-
 export async function deleteBrand(id: number) {
-  try {
-    const supabase = await createClient();
+  const supabase = await createClient();
 
+  try {
+    // 1. First get all products using this brand
+    const { data: products, error: productsError } = await supabase
+      .from("product")
+      .select("id")
+      .eq("brand_id", id);
+
+    if (productsError) throw productsError;
+
+    const productIds = products?.map(p => p.id) || [];
+
+    // 2. Delete all variants for these products first
+    if (productIds.length > 0) {
+      // Delete product variants
+      const { error: variantsError } = await supabase
+        .from("product_variant")
+        .delete()
+        .in("product_id", productIds);
+
+      if (variantsError) throw variantsError;
+
+      // Delete product tags
+      const { error: tagsError } = await supabase
+        .from("product_tag")
+        .delete()
+        .in("product_id", productIds);
+
+      if (tagsError) throw tagsError;
+
+      // Delete the products themselves
+      const { error: productsError } = await supabase
+        .from("product")
+        .delete()
+        .in("id", productIds);
+
+      if (productsError) throw productsError;
+    }
+
+    // 3. Get brand to delete its logo
     const { data: brand, error: fetchError } = await supabase
       .from("brand")
       .select("*")
       .eq("id", id)
       .single();
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch item: ${fetchError.message}`);
+    if (fetchError) throw fetchError;
+
+    // 4. Delete brand logo from storage
+    if (brand.logo_url) {
+      await deleteFileFromS3(brand.logo_url);
     }
 
-    await deleteFileFromS3(brand.logo_url);
-
+    // 5. Finally delete the brand itself
     const { error: deleteError } = await supabase
       .from("brand")
       .delete()
       .eq("id", id);
 
-    if (deleteError) {
-      throw new Error(`Failed to delete item: ${deleteError.message}`);
-    }
+    if (deleteError) throw deleteError;
+
   } catch (error) {
     console.error("Error in deleteBrand:", error);
+    throw error;
   }
 
   revalidatePath("/dashboard/brands");
