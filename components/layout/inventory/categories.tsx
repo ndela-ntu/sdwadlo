@@ -524,6 +524,7 @@ export default function Categories({
   };
 
   const handleToggleCategory = async (id: number, value: boolean) => {
+    setIsProcessing(true);
     try {
       const { data: updatedCategory, error } = await supabase
         .from("category")
@@ -550,6 +551,7 @@ export default function Categories({
         variant: "destructive",
       });
     } finally {
+      setIsProcessing(false);
     }
   };
 

@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -174,15 +175,48 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
       );
 
       setEditingId(null);
-    } catch (error) {
-      console.error("Error updating tag:", error);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleTag = async (id: number, value: boolean) => {
+    try {
+      const { data: updatedTag, error } = await supabase
+        .from("tag")
+        .update({ status: value ? "Active" : "Inactive" })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setTags(
+        tags.map((tag) => {
+          if (tag.id === updatedTag.id) {
+            return updatedTag;
+          }
+
+          return tag;
+        })
+      );
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
   };
 
   return (
     <ShadowedBox>
       <div className="flex items-center justify-between mb-4">
-        <Header2>Tags</Header2>
+        <Header2>Tags/Collections</Header2>
         <Button size="sm" onClick={() => setIsAdding(!isAdding)}>
           {isAdding ? (
             <>
@@ -219,7 +253,7 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
         {tags.map((tag) => (
           <div
             key={tag.id}
-            className="flex justify-between items-center border-b py-2"
+            className={`flex justify-between items-center border-b py-2 ${tag.status === "Inactive" && "opacity-70 bg-silver text-gray-800"}`}
           >
             {editingId === tag.id ? (
               <Input
@@ -232,7 +266,7 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
               <span>{tag.name}</span>
             )}
 
-            <div className="flex space-x-1">
+            <div className="flex space-x-1 items-center">
               {editingId === tag.id ? (
                 <>
                   <Button
@@ -255,8 +289,12 @@ export default function Tags({ tags: initialTags }: { tags: ITag[] }) {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-
-                  {/* Delete Confirmation Dialog */}
+                  <Switch
+                    checked={tag.status === "Active"}
+                    onCheckedChange={(value) => {
+                      handleToggleTag(tag.id, value);
+                    }}
+                  />
                   <Dialog
                     open={isDialogOpen && tagToDelete?.id === tag.id}
                     onOpenChange={setIsDialogOpen}
