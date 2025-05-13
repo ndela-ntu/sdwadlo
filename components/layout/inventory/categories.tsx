@@ -29,15 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    return String(error.message);
-  }
-  return "An unknown error occurred";
-}
+import { Switch } from "@/components/ui/switch";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -531,6 +523,36 @@ export default function Categories({
     }
   };
 
+  const handleToggleCategory = async (id: number, value: boolean) => {
+    try {
+      const { data: updatedCategory, error } = await supabase
+        .from("category")
+        .update({ status: value ? "Active" : "Inactive" })
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      setCategories(
+        categories.map((category) => {
+          if (category.id === updatedCategory.id) {
+            return updatedCategory;
+          }
+
+          return category;
+        })
+      );
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+    }
+  };
+
   return (
     <ShadowedBox>
       <div className="flex items-center justify-between mb-4">
@@ -565,7 +587,10 @@ export default function Categories({
 
       <div className="flex flex-col space-y-2 mt-4">
         {categories.map((category) => (
-          <div key={category.id} className="border-b pb-2">
+          <div
+            key={category.id}
+            className={`border-b pb-2 ${category.status === 'Inactive' && 'opacity-70 bg-silver text-gray-800'}`}
+          >
             <div className="flex items-center justify-between p-2 rounded">
               {editingCategoryId === category.id ? (
                 // Editing mode for category
@@ -606,7 +631,7 @@ export default function Categories({
                     )}
                     <span>{category.name}</span>
                   </div>
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-1 items-center">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -623,6 +648,12 @@ export default function Categories({
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
+                    <Switch
+                      checked={category.status === "Active"}
+                      onCheckedChange={(value) => {
+                        handleToggleCategory(category.id, value);
+                      }}
+                    />
                     <Button
                       size="sm"
                       variant="ghost"
