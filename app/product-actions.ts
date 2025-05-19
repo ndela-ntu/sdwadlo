@@ -60,6 +60,7 @@ export async function createProduct(
   prevState: ProductState,
   formData: FormData
 ) {
+  console.log(formData.get("category"), formData.get("subcategory"));
   const productValidation = ProductSchema.safeParse({
     brand: formData.get("brand")?.toString() ?? "",
     category: formData.get("category")?.toString() ?? "",
@@ -177,6 +178,8 @@ export async function createProduct(
         material,
         tags,
       } = productValidation.data;
+      console.log(parseInt(category), parseInt(subcategory));
+
       const { colors, sizeType } = variantValidation.data;
 
       const supabase = await createClient();
