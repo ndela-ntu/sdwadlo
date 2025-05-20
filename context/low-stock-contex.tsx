@@ -35,29 +35,51 @@ export const LowStockProvider = ({ children }: { children: ReactNode }) => {
   );
   const [lowStockCounter, setLowStockCounter] = useState<number>();
 
-  const fetchLowStockCounter = async () => {
-    const { data: stockSettings, error } = await supabase
-      .from("stock_setting")
-      .select(`*`)
-      .single();
-
-    if (error) {
-      toast({
-        title: "Error occurred",
-        description: `Failed to fetch stock settings`,
-        variant: "destructive",
-      });
-    }
-
-    if (stockSettings) {
-      const settings = stockSettings as IStockSettings;
-      setLowStockCounter(settings.low_stock_counter);
-    }
-  };
-
   useEffect(() => {
-    fetchLowStockCounter();
-  }, [])
+    const fetchLowStockData = async () => {
+      const { data: stockSettings, error: settingsError } = await supabase
+        .from("stock_setting")
+        .select("*")
+        .single();
+
+      if (settingsError) {
+        toast({
+          title: "Error occurred",
+          description: `Failed to fetch stock settings: ${settingsError.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const settings = stockSettings as IStockSettings;
+      const counter = settings.low_stock_counter;
+      setLowStockCounter(counter);
+
+      const { data: variants, error: variantsError } = await supabase
+        .from("product_variant")
+        .select("id, quantity");
+
+      if (variantsError) {
+        toast({
+          title: "Error occurred",
+          description: `Failed to fetch product variants: ${variantsError.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const lowStock = variants
+        .filter((variant) => variant.quantity <= (counter ?? 2))
+        .map((variant) => ({
+          variantId: variant.id,
+          quantity: variant.quantity,
+        }));
+
+      setLowStockVariants(lowStock);
+    };
+
+    fetchLowStockData();
+  }, []);
 
   const addLowStockVariant = (variant: LowStockVariant) => {
     setLowStockVariants((prev) => {
@@ -65,10 +87,9 @@ export const LowStockProvider = ({ children }: { children: ReactNode }) => {
         if (prev.find((v) => v.variantId === variant.variantId)) return prev;
 
         return [...prev, variant];
-      }else {
+      } else {
         return prev;
       }
-    
     });
   };
 
