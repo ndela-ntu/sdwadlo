@@ -162,45 +162,44 @@ export default function ProductTable({
               variants
                 .filter((v) => v.product.id === product.id)
                 .map((variant) => (
-                  <TableRow key={variant.id} className="bg-gray-50 w-full">
-                    <TableCell colSpan={9}>
-                      <div className="flex space-x-4 items-center">
-                        <div className="flex flex-col gap-1 p-5 bg-chestNut rounded-md text-white">
-                          <div>
-                            <strong>Quantity:</strong> {variant.quantity}
-                          </div>
-                          {variant.color && (
-                            <div>
-                              <strong>Color:</strong> {variant.color.name}
-                            </div>
-                          )}
-                          {variant.size && (
-                            <div>
-                              <strong>Size:</strong> {variant.size.name}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 overflow-x-auto">
-                          <div className="flex gap-2 mt-1">
-                            {variant.image_urls.map((url, i) => (
-                              <div
-                                key={i}
-                                className="relative aspect-square w-24 h-24 flex-shrink-0"
-                              >
-                                <Image
-                                  src={url || "/placeholder-image.svg"}
-                                  alt={`Variant picture`}
-                                  fill
-                                  style={{
-                                    objectFit: "contain",
-                                  }}
-                                  className="rounded-sm"
-                                />
+                  <TableRow key={variant.id} className="bg-gray-50 w-full p-10">
+                    <TableCell colSpan={9} className="p-0">
+                      <Table className="w-full border bg-white">
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[150px]"></TableHead>
+                            <TableHead>Quantity</TableHead>
+                            <TableHead>Color</TableHead>
+                            <TableHead>Size</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          <TableRow>
+                            {/* Image column with rowSpan */}
+                            <TableCell rowSpan={1} className="align-top">
+                              <div className="flex gap-2 overflow-x-auto p-1">
+                                {variant.image_urls.map((url, i) => (
+                                  <div
+                                    key={i}
+                                    className="relative aspect-square w-24 h-24 flex-shrink-0"
+                                  >
+                                    <Image
+                                      src={url || "/placeholder-image.svg"}
+                                      alt={`Variant picture`}
+                                      fill
+                                      style={{ objectFit: "contain" }}
+                                      className="rounded-sm"
+                                    />
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                            </TableCell>
+                            <TableCell>{variant.quantity}</TableCell>
+                            <TableCell>{variant.color?.name || "-"}</TableCell>
+                            <TableCell>{variant.size?.name || "-"}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
                     </TableCell>
                   </TableRow>
                 ))}

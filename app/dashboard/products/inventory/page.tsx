@@ -12,9 +12,9 @@ import Link from "next/link";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string, id?: string }>;
 }) {
-  const { ref } = await searchParams;
+  const { ref, id } = await searchParams;
 
   const supabase = await createClient();
 
@@ -59,7 +59,7 @@ export default async function Page({
           </Link>
         )}
         {ref === "edit-product" && (
-          <Link href={`/dashboard/products/edit-product`}>
+          <Link href={`/dashboard/products/edit-product/${id}`}>
             <ArrowLeft className="w-5 h-5" />
           </Link>
         )}

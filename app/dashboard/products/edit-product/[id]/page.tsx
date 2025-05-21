@@ -90,7 +90,7 @@ export default async function (props: { params: Promise<{ id: string }> }) {
         <Link
           href={{
             pathname: "/dashboard/products/inventory",
-            query: { ref: "edit-product" },
+            query: { ref: "edit-product", id },
           }}
         >
           <span className="p-2.5 bg-eerieBlack rounded-xl flex space-x-2.5 max-w-fit">
