@@ -81,14 +81,14 @@ const links: {
         href: "/dashboard/revenue/profits",
         icon: <Banknote />,
       },
-      {
-        name: "Taxes",
-        href: "/dashboard/revenue/taxes",
-        icon: <PiggyBank />,
-      },
+      // {
+      //   name: "Taxes",
+      //   href: "/dashboard/revenue/taxes",
+      //   icon: <PiggyBank />,
+      // },
       {
         name: "Shipping",
-        href: "/dashboard/revenue/taxes",
+        href: "/dashboard/revenue/shipping",
         icon: <Ship />,
       },
     ],
