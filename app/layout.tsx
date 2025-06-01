@@ -4,6 +4,7 @@ import { Montserrat } from "next/font/google";
 import { LowStockProvider } from "@/context/low-stock-contex";
 import { Toaster } from "@/components/ui/toaster";
 import { MissingMediaProvider } from "@/context/missing-media-context";
+import { PendingOrdersProvider } from "@/context/pending-orders-context";
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -33,12 +34,14 @@ export default function RootLayout({
     >
       <body className="bg-white text-black">
         <ErrorBoundary>
-          <MissingMediaProvider>
-            <LowStockProvider>
-              <main className="h-full">{children}</main>
-              <Toaster />
-            </LowStockProvider>
-          </MissingMediaProvider>
+          <PendingOrdersProvider>
+            <MissingMediaProvider>
+              <LowStockProvider>
+                <main className="h-full">{children}</main>
+                <Toaster />
+              </LowStockProvider>
+            </MissingMediaProvider>
+          </PendingOrdersProvider>
         </ErrorBoundary>
       </body>
     </html>
