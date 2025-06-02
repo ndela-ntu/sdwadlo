@@ -1,5 +1,6 @@
 import Header1 from "@/components/layout/header1";
 import Order from "@/components/layout/orders/order";
+import OrderManager from "@/components/layout/orders/order-manager";
 import ShadowedBox from "@/components/layout/shadowed-box";
 import { createClient } from "@/utils/supabase/server";
 
@@ -18,11 +19,7 @@ export default async function Page() {
   return (
     <ShadowedBox>
       <Header1>Orders</Header1>
-      <div className="grid grid-cols-2 gap-5 mt-5">
-        {orders.map((order) => (
-          <Order key={order.id} initialOrder={order} />
-        ))}
-      </div>
+      <OrderManager allOrders={orders} />
     </ShadowedBox>
   );
 }
