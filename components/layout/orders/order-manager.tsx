@@ -54,7 +54,20 @@ export default function OrderManager({
           setLoading(false);
         }
       } else {
-        setViewingFor('All');
+        setViewingFor("All");
+        const { data: allOrders, error } = await supabase
+          .from("checkout_detail")
+          .select("*");
+
+        if (error) {
+          toast({
+            title: "Error occurred",
+            description: `An error has occurred: ${error.message}`,
+            variant: "destructive",
+          });
+          return;
+        }
+
         setOrders(allOrders);
       }
     }, 300);
@@ -71,6 +84,12 @@ export default function OrderManager({
       switch (viewType) {
         case "All":
           {
+            const { data: allOrders, error } = await supabase
+              .from("checkout_detail")
+              .select("*");
+
+            if (error) throw error;
+
             setOrders(allOrders);
           }
           break;
